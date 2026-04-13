@@ -37,11 +37,11 @@ func renderImage(project Project, stats textStats, frame int, width, height int)
 
 	switch project.Display.Mode {
 	case displayModeDotMatrix:
-		if err := drawDotMatrixText(img, project, lines); err != nil {
+		if err := drawDisplayText(img, project, lines, false); err != nil {
 			return nil, err
 		}
 	default:
-		if err := drawSegmentText(img, project, lines); err != nil {
+		if err := drawDisplayText(img, project, lines, true); err != nil {
 			return nil, err
 		}
 	}
@@ -102,67 +102,132 @@ func drawPlaceholderBands(img *image.NRGBA, a, b color.NRGBA) {
 	}
 }
 
-func drawSegmentText(img *image.NRGBA, project Project, lines []string) error {
-	face, lineHeight, err := fittedFace(lines, img.Bounds().Dx(), img.Bounds().Dy())
-	if err != nil {
-		return err
-	}
-	defer closeFace(face)
-
+func drawDisplayText(img *image.NRGBA, project Project, lines []string, segmentMode bool) error {
+	layout := computeDisplayLayout(project, lines, img.Bounds().Dx(), img.Bounds().Dy(), segmentMode)
 	mainColor := parseHexColor(project.Style.MainColor, color.NRGBA{R: 255, G: 96, B: 64, A: 255})
 	glowColor := parseHexColor(project.Style.GlowColor, color.NRGBA{R: 255, G: 140, B: 102, A: 255})
+	inactiveColor := parseHexColor(project.Style.InactiveColor, color.NRGBA{R: 49, G: 20, B: 14, A: 255})
+	inactiveColor.A = uint8(40 + (project.Style.InactiveVisibility/100.0)*140)
 
-	glowAlpha := uint8(40 + 1.8*project.Style.GlowIntensity)
-	if glowAlpha > 180 {
-		glowAlpha = 180
-	}
-	glow := color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: glowAlpha}
-
-	totalHeight := lineHeight * len(lines)
-	startY := (img.Bounds().Dy()-totalHeight)/2 + lineHeight
+	totalHeight := len(lines)*layout.charHeight + maxInt(len(lines)-1, 0)*layout.lineGap
+	startY := maxInt((img.Bounds().Dy()-totalHeight)/2, layout.padding)
 	for lineIndex, line := range lines {
-		width := font.MeasureString(face, line).Ceil()
-		x := alignedX(project.Layout.Alignment, img.Bounds().Dx(), width, int(project.Layout.Padding))
-		y := startY + lineIndex*lineHeight
-		for _, offset := range []image.Point{{-2, 0}, {2, 0}, {0, -2}, {0, 2}, {-1, -1}, {1, 1}} {
-			drawTextLine(img, face, line, x+offset.X, y+offset.Y, glow)
+		lineRunes := []rune(line)
+		lineWidth := len(lineRunes)*layout.charWidth + maxInt(len(lineRunes)-1, 0)*layout.charGap
+		x := alignedX(project.Layout.Alignment, img.Bounds().Dx(), lineWidth, layout.padding)
+		y := startY + lineIndex*(layout.charHeight+layout.lineGap)
+
+		for _, r := range lineRunes {
+			matrix := matrixGlyphForRune(r, layout.cols, layout.rows)
+			drawGlyphBox(img, x, y, layout, matrix, inactiveColor, mainColor, glowColor, segmentMode)
+			x += layout.charWidth + layout.charGap
 		}
-		drawTextLine(img, face, line, x, y, mainColor)
 	}
 	return nil
 }
 
-func drawDotMatrixText(img *image.NRGBA, project Project, lines []string) error {
-	mask := image.NewAlpha(img.Bounds())
-	face, lineHeight, err := fittedFace(lines, img.Bounds().Dx(), img.Bounds().Dy())
-	if err != nil {
-		return err
-	}
-	defer closeFace(face)
+type displayLayout struct {
+	cols       int
+	rows       int
+	cellWidth  int
+	cellHeight int
+	cellGapX   int
+	cellGapY   int
+	charWidth  int
+	charHeight int
+	charGap    int
+	lineGap    int
+	padding    int
+}
 
-	totalHeight := lineHeight * len(lines)
-	startY := (img.Bounds().Dy()-totalHeight)/2 + lineHeight
-	for lineIndex, line := range lines {
-		width := font.MeasureString(face, line).Ceil()
-		x := alignedX(project.Layout.Alignment, img.Bounds().Dx(), width, int(project.Layout.Padding))
-		y := startY + lineIndex*lineHeight
-		drawTextLineAlpha(mask, face, line, x, y, color.Alpha{A: 255})
+func computeDisplayLayout(project Project, lines []string, width, height int, segmentMode bool) displayLayout {
+	cols, rows := 6, 9
+	baseCellW, baseCellH := 12.0, 12.0
+	baseGapX, baseGapY := 3.0, 3.0
+	if segmentMode {
+		cols, rows = 7, 11
+		baseCellW, baseCellH = 16.0, 10.0
+		baseGapX, baseGapY = 2.0, 2.0
 	}
 
-	mainColor := parseHexColor(project.Style.MainColor, color.NRGBA{R: 255, G: 96, B: 64, A: 255})
-	glowColor := parseHexColor(project.Style.GlowColor, color.NRGBA{R: 255, G: 140, B: 102, A: 255})
-	step := maxInt(int(14*project.Layout.CellScale), 8)
-	radius := maxInt(step/4, 2)
-	for y := mask.Bounds().Min.Y; y < mask.Bounds().Max.Y; y += step {
-		for x := mask.Bounds().Min.X; x < mask.Bounds().Max.X; x += step {
-			if mask.AlphaAt(x, y).A < 10 {
-				continue
+	scale := project.Layout.CellScale
+	if scale <= 0 {
+		scale = 1
+	}
+
+	cellW := maxInt(int(baseCellW*scale), 4)
+	cellH := maxInt(int(baseCellH*scale), 4)
+	gapX := maxInt(int(baseGapX*scale), 1)
+	gapY := maxInt(int(baseGapY*scale), 1)
+	charGap := maxInt(int(project.Layout.CharacterSpacing*scale/3), 4)
+	lineGap := maxInt(int(project.Layout.LineSpacing*scale/2), 8)
+	padding := maxInt(int(project.Layout.Padding), 18)
+
+	charWidth := cols*cellW + maxInt(cols-1, 0)*gapX
+	charHeight := rows*cellH + maxInt(rows-1, 0)*gapY
+
+	maxLineLen := 1
+	for _, line := range lines {
+		maxLineLen = maxInt(maxLineLen, len([]rune(line)))
+	}
+	totalWidth := maxLineLen*charWidth + maxInt(maxLineLen-1, 0)*charGap + 2*padding
+	totalHeight := len(lines)*charHeight + maxInt(len(lines)-1, 0)*lineGap + 2*padding
+	fitFactor := minFloat(float64(width)/float64(maxInt(totalWidth, 1)), float64(height)/float64(maxInt(totalHeight, 1)))
+	if fitFactor < 1 {
+		cellW = maxInt(int(float64(cellW)*fitFactor), 2)
+		cellH = maxInt(int(float64(cellH)*fitFactor), 2)
+		gapX = maxInt(int(float64(gapX)*fitFactor), 1)
+		gapY = maxInt(int(float64(gapY)*fitFactor), 1)
+		charGap = maxInt(int(float64(charGap)*fitFactor), 2)
+		lineGap = maxInt(int(float64(lineGap)*fitFactor), 4)
+		padding = maxInt(int(float64(padding)*fitFactor), 12)
+		charWidth = cols*cellW + maxInt(cols-1, 0)*gapX
+		charHeight = rows*cellH + maxInt(rows-1, 0)*gapY
+	}
+
+	return displayLayout{
+		cols:       cols,
+		rows:       rows,
+		cellWidth:  cellW,
+		cellHeight: cellH,
+		cellGapX:   gapX,
+		cellGapY:   gapY,
+		charWidth:  charWidth,
+		charHeight: charHeight,
+		charGap:    charGap,
+		lineGap:    lineGap,
+		padding:    padding,
+	}
+}
+
+func drawGlyphBox(img *image.NRGBA, x, y int, layout displayLayout, matrix glyphMatrix, inactiveColor, activeColor, glowColor color.NRGBA, segmentMode bool) {
+	glowAlpha := uint8(32)
+	if activeColor.A > 0 {
+		glowAlpha = 40
+	}
+
+	for gy := 0; gy < layout.rows; gy++ {
+		for gx := 0; gx < layout.cols; gx++ {
+			cx := x + gx*(layout.cellWidth+layout.cellGapX)
+			cy := y + gy*(layout.cellHeight+layout.cellGapY)
+
+			if segmentMode {
+				drawSegmentCell(img, cx, cy, layout.cellWidth, layout.cellHeight, inactiveColor)
+				if matrix.At(gx, gy) {
+					drawSegmentGlow(img, cx, cy, layout.cellWidth, layout.cellHeight, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: glowAlpha})
+					drawSegmentCell(img, cx, cy, layout.cellWidth, layout.cellHeight, activeColor)
+				}
+			} else {
+				radius := maxInt(minInt(layout.cellWidth, layout.cellHeight)/2-1, 1)
+				drawGlowDot(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius+2, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: 26})
+				fillCircle(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius, inactiveColor)
+				if matrix.At(gx, gy) {
+					drawGlowDot(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius+3, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: glowAlpha + 40})
+					fillCircle(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius, activeColor)
+				}
 			}
-			drawGlowDot(img, x, y, radius+1, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: 70})
-			fillCircle(img, x, y, radius, color.NRGBA{R: mainColor.R, G: mainColor.G, B: mainColor.B, A: 255})
 		}
 	}
-	return nil
 }
 
 func drawFooterInfo(img *image.NRGBA, project Project, frame animatedFrame) {
@@ -189,26 +254,6 @@ func drawFooterInfo(img *image.NRGBA, project Project, frame animatedFrame) {
 		drawTextLine(img, face, line, 18, y, color.NRGBA{R: 220, G: 225, B: 232, A: 180})
 		y += 16
 	}
-}
-
-func fittedFace(lines []string, width, height int) (font.Face, int, error) {
-	lineCount := maxInt(len(lines), 1)
-	for size := float64(height)/float64(lineCount+2) + 10; size >= 14; size -= 2 {
-		face, lineHeight, err := loadFace(size)
-		if err != nil {
-			return nil, 0, err
-		}
-		maxWidth := 0
-		for _, line := range lines {
-			maxWidth = maxInt(maxWidth, font.MeasureString(face, line).Ceil())
-		}
-		totalHeight := lineHeight * lineCount
-		if maxWidth <= width-40 && totalHeight <= height-80 {
-			return face, lineHeight, nil
-		}
-		closeFace(face)
-	}
-	return loadFace(14)
 }
 
 func loadFace(size float64) (font.Face, int, error) {
@@ -248,16 +293,6 @@ func drawTextLine(img draw.Image, face font.Face, text string, x, y int, col col
 	d.DrawString(text)
 }
 
-func drawTextLineAlpha(img *image.Alpha, face font.Face, text string, x, y int, col color.Alpha) {
-	d := font.Drawer{
-		Dst:  img,
-		Src:  image.NewUniform(col),
-		Face: face,
-		Dot:  fixed.P(x, y),
-	}
-	d.DrawString(text)
-}
-
 func alignedX(alignment string, width, lineWidth, padding int) int {
 	switch alignment {
 	case alignmentLeft:
@@ -271,6 +306,16 @@ func alignedX(alignment string, width, lineWidth, padding int) int {
 
 func drawGlowDot(img *image.NRGBA, cx, cy, radius int, col color.NRGBA) {
 	fillCircle(img, cx, cy, radius+2, color.NRGBA{R: col.R, G: col.G, B: col.B, A: col.A / 2})
+}
+
+func drawSegmentGlow(img *image.NRGBA, x, y, width, height int, col color.NRGBA) {
+	glow := color.NRGBA{R: col.R, G: col.G, B: col.B, A: 40}
+	drawSegmentCell(img, x-1, y-1, width+2, height+2, glow)
+}
+
+func drawSegmentCell(img *image.NRGBA, x, y, width, height int, col color.NRGBA) {
+	radius := maxInt(minInt(width, height)/3, 1)
+	fillRoundedRect(img, image.Rect(x, y, x+width, y+height), radius, col)
 }
 
 func fillCircle(img *image.NRGBA, cx, cy, radius int, col color.NRGBA) {
@@ -291,6 +336,53 @@ func fillCircle(img *image.NRGBA, cx, cy, radius int, col color.NRGBA) {
 			}
 		}
 	}
+}
+
+func fillRoundedRect(img *image.NRGBA, rect image.Rectangle, radius int, col color.NRGBA) {
+	if rect.Empty() {
+		return
+	}
+	if radius <= 0 {
+		for y := rect.Min.Y; y < rect.Max.Y; y++ {
+			for x := rect.Min.X; x < rect.Max.X; x++ {
+				blendNRGBA(img, x, y, col)
+			}
+		}
+		return
+	}
+
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		for x := rect.Min.X; x < rect.Max.X; x++ {
+			if pointInRoundedRect(x, y, rect, radius) {
+				blendNRGBA(img, x, y, col)
+			}
+		}
+	}
+}
+
+func pointInRoundedRect(x, y int, rect image.Rectangle, radius int) bool {
+	if x >= rect.Min.X+radius && x < rect.Max.X-radius {
+		return true
+	}
+	if y >= rect.Min.Y+radius && y < rect.Max.Y-radius {
+		return true
+	}
+
+	corners := []image.Point{
+		{X: rect.Min.X + radius, Y: rect.Min.Y + radius},
+		{X: rect.Max.X - radius - 1, Y: rect.Min.Y + radius},
+		{X: rect.Min.X + radius, Y: rect.Max.Y - radius - 1},
+		{X: rect.Max.X - radius - 1, Y: rect.Max.Y - radius - 1},
+	}
+	rsq := float64(radius * radius)
+	for _, corner := range corners {
+		dx := float64(x - corner.X)
+		dy := float64(y - corner.Y)
+		if dx*dx+dy*dy <= rsq {
+			return true
+		}
+	}
+	return false
 }
 
 func blendNRGBA(img *image.NRGBA, x, y int, src color.NRGBA) {
