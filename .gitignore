@@ -1,1 +1,5 @@
 bin/
+.entire/logs/
+.entire/metadata/
+.entire/tmp/
+.entire/settings.local.json
