@@ -86,6 +86,10 @@ type appUI struct {
 	tagsEntry        *widget.Entry
 	projectPathLabel *widget.Label
 	metadataLabel    *widget.Label
+	recentProjects   *fyne.Container
+	stylePreset      *widget.Select
+	animPreset       *widget.Select
+	exportPreset     *widget.Select
 
 	staticPreview    *previewCard
 	animationPreview *previewCard
@@ -649,6 +653,13 @@ func (ui *appUI) buildProjectTab() fyne.CanvasObject {
 	}
 	ui.projectPathLabel = widget.NewLabel("")
 	ui.metadataLabel = widget.NewLabel("")
+	ui.recentProjects = container.NewVBox(widget.NewLabel("No recent projects yet"))
+	ui.stylePreset = widget.NewSelect(presetNames(stylePresets), nil)
+	ui.animPreset = widget.NewSelect(presetNames(animationPresets), nil)
+	ui.exportPreset = widget.NewSelect(presetNames(exportPresets), nil)
+	ui.stylePreset.SetSelected(stylePresets[0].Name)
+	ui.animPreset.SetSelected(animationPresets[0].Name)
+	ui.exportPreset.SetSelected(exportPresets[0].Name)
 
 	left := paneScroll(container.NewVBox(
 		sectionCard("Project", container.NewGridWithColumns(2,
@@ -670,10 +681,35 @@ func (ui *appUI) buildProjectTab() fyne.CanvasObject {
 
 	right := paneScroll(container.NewVBox(
 		sectionCard("Current file", ui.projectPathLabel),
+		sectionCard("Recent projects", ui.recentProjects),
 		sectionCard("Presets", container.NewVBox(
-			widget.NewButton("Save style preset", func() { ui.setStatus("Presets are planned after the renderer/export core is stable.") }),
-			widget.NewButton("Save animation preset", func() { ui.setStatus("Presets are planned after the renderer/export core is stable.") }),
-			widget.NewButton("Save export preset", func() { ui.setStatus("Presets are planned after the renderer/export core is stable.") }),
+			widget.NewLabel("Style preset"),
+			ui.stylePreset,
+			widget.NewButton("Apply style preset", func() {
+				if applyPresetByName(&ui.project, ui.stylePreset.Selected, stylePresets) {
+					ui.touchProject()
+					ui.applyProjectToWidgets()
+					ui.refreshDerivedUI()
+				}
+			}),
+			widget.NewLabel("Animation preset"),
+			ui.animPreset,
+			widget.NewButton("Apply animation preset", func() {
+				if applyPresetByName(&ui.project, ui.animPreset.Selected, animationPresets) {
+					ui.touchProject()
+					ui.applyProjectToWidgets()
+					ui.refreshDerivedUI()
+				}
+			}),
+			widget.NewLabel("Export preset"),
+			ui.exportPreset,
+			widget.NewButton("Apply export preset", func() {
+				if applyPresetByName(&ui.project, ui.exportPreset.Selected, exportPresets) {
+					ui.touchProject()
+					ui.applyProjectToWidgets()
+					ui.refreshDerivedUI()
+				}
+			}),
 		)),
 	))
 
@@ -844,6 +880,7 @@ func (ui *appUI) refreshDerivedUI() {
 	}
 	ui.projectPathLabel.SetText(projectPath)
 	ui.metadataLabel.SetText(fmt.Sprintf("Created: %s\nUpdated: %s", ui.project.Metadata.CreatedAt, ui.project.Metadata.UpdatedAt))
+	ui.refreshRecentProjects()
 	ui.setStatus(fmt.Sprintf("Project ready • %s • Seed %s", ui.project.Metadata.ProjectName, ui.project.Animation.Seed))
 }
 
@@ -921,6 +958,7 @@ func (ui *appUI) openProjectDialog() {
 		ui.ensureSeed()
 		if reader.URI() != nil {
 			ui.projectPath = reader.URI().Path()
+			ui.recordRecentProject(ui.projectPath)
 		}
 		ui.applyProjectToWidgets()
 		ui.refreshDerivedUI()
@@ -964,6 +1002,7 @@ func (ui *appUI) saveProjectAsDialog() {
 		}
 		if writer.URI() != nil {
 			ui.projectPath = writer.URI().Path()
+			ui.recordRecentProject(ui.projectPath)
 		}
 		ui.refreshDerivedUI()
 	}, ui.window)
@@ -982,6 +1021,7 @@ func (ui *appUI) saveToPath(path string) error {
 		return err
 	}
 	ui.projectPath = path
+	ui.recordRecentProject(path)
 	ui.refreshDerivedUI()
 	return nil
 }
@@ -1103,4 +1143,74 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func (ui *appUI) recentProjectPaths() []string {
+	raw := ui.app.Preferences().StringList("recent_projects")
+	unique := make([]string, 0, len(raw))
+	seen := map[string]bool{}
+	for _, path := range raw {
+		if path == "" || seen[path] {
+			continue
+		}
+		seen[path] = true
+		unique = append(unique, path)
+	}
+	return unique
+}
+
+func (ui *appUI) recordRecentProject(path string) {
+	if path == "" {
+		return
+	}
+	items := []string{path}
+	for _, existing := range ui.recentProjectPaths() {
+		if existing != path {
+			items = append(items, existing)
+		}
+		if len(items) >= 8 {
+			break
+		}
+	}
+	ui.app.Preferences().SetStringList("recent_projects", items)
+}
+
+func (ui *appUI) refreshRecentProjects() {
+	if ui.recentProjects == nil {
+		return
+	}
+	items := ui.recentProjectPaths()
+	objects := make([]fyne.CanvasObject, 0, len(items))
+	if len(items) == 0 {
+		objects = append(objects, widget.NewLabel("No recent projects yet"))
+	} else {
+		for _, path := range items {
+			currentPath := path
+			objects = append(objects, widget.NewButton(filepathBase(currentPath), func() {
+				if err := ui.loadProjectFromPath(currentPath); err != nil {
+					dialog.ShowError(err, ui.window)
+				}
+			}))
+		}
+	}
+	ui.recentProjects.Objects = objects
+	ui.recentProjects.Refresh()
+}
+
+func (ui *appUI) loadProjectFromPath(path string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var loaded Project
+	if err := json.Unmarshal(raw, &loaded); err != nil {
+		return err
+	}
+	ui.project = normalizeProject(loaded)
+	ui.ensureSeed()
+	ui.projectPath = path
+	ui.recordRecentProject(path)
+	ui.applyProjectToWidgets()
+	ui.refreshDerivedUI()
+	return nil
 }
