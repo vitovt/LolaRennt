@@ -1080,13 +1080,44 @@ func (ui *appUI) renderPNGSequenceAction() {
 		ui.setStatus("Render is already running.")
 		return
 	}
+	prepared, err := prepareRenderProject(ui.project, false)
+	if err != nil {
+		if conflict, ok := err.(overwriteConflictError); ok {
+			dialog.NewConfirm(
+				"Overwrite existing frames?",
+				fmt.Sprintf("Existing output detected:\n%s\n\nOverwrite existing PNG frames?", conflict.Path),
+				func(confirm bool) {
+					if !confirm {
+						ui.setStatus("Render cancelled before start.")
+						return
+					}
+					project, prepErr := prepareRenderProject(ui.project, true)
+					if prepErr != nil {
+						dialog.ShowError(prepErr, ui.window)
+						return
+					}
+					ui.startRender(project)
+				},
+				ui.window,
+			).Show()
+			return
+		}
+		dialog.ShowError(err, ui.window)
+		return
+	}
+	ui.startRender(prepared)
+}
+
+func (ui *appUI) startRender(project Project) {
 	ui.exportRunning = true
 	ui.cancelRender = make(chan struct{})
 	ui.exportProgress.SetValue(0)
 	ui.exportLog.SetText("")
 	ui.setStatus("PNG render started.")
+	if project.Export.FilePrefix != ui.project.Export.FilePrefix {
+		ui.appendExportLog(fmt.Sprintf("Using output prefix: %s", project.Export.FilePrefix))
+	}
 
-	project := ui.project
 	go func() {
 		outputFolder, count, err := renderPNGSequence(project, ui.cancelRender, func(step renderProgress) {
 			fyne.Do(func() {

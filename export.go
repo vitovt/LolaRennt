@@ -16,6 +16,39 @@ type renderProgress struct {
 
 var errRenderCancelled = errors.New("render cancelled")
 
+type overwriteConflictError struct {
+	Path string
+}
+
+func (e overwriteConflictError) Error() string {
+	return "render output already exists: " + e.Path
+}
+
+func prepareRenderProject(project Project, allowOverwrite bool) (Project, error) {
+	project = normalizeProject(project)
+	outputFolder := project.Export.OutputFolder
+	if outputFolder == "" {
+		outputFolder = "."
+	}
+	prefix := project.Export.FilePrefix
+	if prefix == "" {
+		prefix = "frame"
+	}
+
+	switch project.Export.OverwritePolicy {
+	case "Create new suffix":
+		project.Export.FilePrefix = nextAvailablePrefix(outputFolder, prefix, project)
+		return project, nil
+	case "Overwrite":
+		return project, nil
+	default:
+		if conflict := firstExistingFrame(outputFolder, prefix, project); conflict != "" && !allowOverwrite {
+			return project, overwriteConflictError{Path: conflict}
+		}
+		return project, nil
+	}
+}
+
 func renderPNGSequence(project Project, cancel <-chan struct{}, progress func(renderProgress)) (string, int, error) {
 	stats := analyzeText(project.Text.Content, project.Charset.Languages, project.Text.UppercaseOnly, project.Text.AutoReplaceUnsupported)
 	outputFolder := project.Export.OutputFolder
@@ -70,4 +103,27 @@ func renderPNGSequence(project Project, cancel <-chan struct{}, progress func(re
 	}
 
 	return outputFolder, count, nil
+}
+
+func nextAvailablePrefix(outputFolder, prefix string, project Project) string {
+	if firstExistingFrame(outputFolder, prefix, project) == "" {
+		return prefix
+	}
+	for suffix := 1; suffix < 1000; suffix++ {
+		candidate := fmt.Sprintf("%s_%02d", prefix, suffix)
+		if firstExistingFrame(outputFolder, candidate, project) == "" {
+			return candidate
+		}
+	}
+	return prefix + "_new"
+}
+
+func firstExistingFrame(outputFolder, prefix string, project Project) string {
+	for frame := project.Export.StartFrame; frame <= project.Export.EndFrame; frame++ {
+		filename := filepath.Join(outputFolder, fmt.Sprintf("%s_%05d.png", prefix, frame))
+		if _, err := os.Stat(filename); err == nil {
+			return filename
+		}
+	}
+	return ""
 }
