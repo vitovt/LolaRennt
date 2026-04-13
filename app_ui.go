@@ -608,9 +608,7 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 		sectionCard("Export summary", ui.exportSummary),
 		sectionCard("Render control", container.NewVBox(
 			container.NewGridWithColumns(2,
-				widget.NewButtonWithIcon("Render PNG sequence", theme.DocumentIcon(), func() {
-					ui.setStatus("PNG renderer will be implemented in the next slice; command generation is already live.")
-				}),
+				widget.NewButtonWithIcon("Render PNG sequence", theme.DocumentIcon(), ui.renderPNGSequenceAction),
 				widget.NewButtonWithIcon("Copy ffmpeg command", theme.ContentCopyIcon(), ui.copyFFmpegCommand),
 			),
 		)),
@@ -795,9 +793,10 @@ func (ui *appUI) refreshDerivedUI() {
 	}
 
 	stats := analyzeText(ui.project.Text.Content, ui.project.Charset.Languages, ui.project.Text.UppercaseOnly, ui.project.Text.AutoReplaceUnsupported)
-	ui.staticPreview.applyProject(ui.project, stats, "Live text preview")
-	ui.animationPreview.applyProject(ui.project, stats, "Animation state preview")
-	ui.exportPreview.applyProject(ui.project, stats, "Export frame preview")
+	ui.staticPreview.applyProject(ui.project, stats, ui.project.Export.StartFrame)
+	previewFrame := ui.project.Export.StartFrame + int((ui.timelineSlider.Value/100.0)*float64(maxInt(ui.project.Export.EndFrame-ui.project.Export.StartFrame, 0)))
+	ui.animationPreview.applyProject(ui.project, stats, previewFrame)
+	ui.exportPreview.applyProject(ui.project, stats, ui.project.Export.EndFrame)
 
 	ui.statsLabel.SetText(fmt.Sprintf("Символів: %d • Рядків: %d • Unsupported: %s", stats.CharacterCount, stats.LineCount, formatUnsupportedRunes(stats.UnsupportedUnique)))
 	ui.styleSummary.SetText(fmt.Sprintf(
@@ -1011,6 +1010,15 @@ func (ui *appUI) buildFFmpegCommand() string {
 func (ui *appUI) copyFFmpegCommand() {
 	ui.window.Clipboard().SetContent(ui.buildFFmpegCommand())
 	ui.setStatus("FFmpeg command copied to clipboard.")
+}
+
+func (ui *appUI) renderPNGSequenceAction() {
+	outputFolder, count, err := renderPNGSequence(ui.project)
+	if err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
+	ui.setStatus(fmt.Sprintf("Rendered %d PNG frames to %s", count, outputFolder))
 }
 
 func (ui *appUI) pickOutputFolder() {

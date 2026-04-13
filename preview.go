@@ -1,21 +1,21 @@
 package main
 
 import (
+	"image"
 	"image/color"
+	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
 type previewCard struct {
 	card     *widget.Card
 	bg       *canvas.Rectangle
-	title    *canvas.Text
-	body     *canvas.Text
+	image    *canvas.Image
 	subtitle *canvas.Text
 }
 
@@ -23,15 +23,9 @@ func newPreviewCard(cardTitle string) *previewCard {
 	bg := canvas.NewRectangle(color.NRGBA{R: 5, G: 6, B: 8, A: 255})
 	bg.SetMinSize(fyne.NewSize(0, 430))
 
-	title := canvas.NewText("", color.NRGBA{R: 255, G: 186, B: 128, A: 255})
-	title.TextStyle = fyne.TextStyle{Bold: true, Monospace: true}
-	title.TextSize = 16
-	title.Alignment = fyne.TextAlignCenter
-
-	body := canvas.NewText("", color.NRGBA{R: 255, G: 96, B: 64, A: 255})
-	body.TextStyle = fyne.TextStyle{Monospace: true}
-	body.TextSize = 54
-	body.Alignment = fyne.TextAlignCenter
+	img := canvas.NewImageFromImage(image.NewNRGBA(image.Rect(0, 0, 960, 430)))
+	img.FillMode = canvas.ImageFillContain
+	img.ScaleMode = canvas.ImageScaleFastest
 
 	subtitle := canvas.NewText("", color.NRGBA{R: 130, G: 136, B: 145, A: 255})
 	subtitle.TextSize = 15
@@ -39,22 +33,13 @@ func newPreviewCard(cardTitle string) *previewCard {
 
 	frame := container.NewMax(
 		bg,
-		container.NewPadded(
-			container.NewCenter(container.NewVBox(
-				layout.NewSpacer(),
-				title,
-				body,
-				subtitle,
-				layout.NewSpacer(),
-			)),
-		),
+		container.NewBorder(nil, container.NewPadded(subtitle), nil, nil, container.NewPadded(img)),
 	)
 
 	return &previewCard{
 		card:     widget.NewCard(cardTitle, "", frame),
 		bg:       bg,
-		title:    title,
-		body:     body,
+		image:    img,
 		subtitle: subtitle,
 	}
 }
@@ -63,36 +48,25 @@ func (p *previewCard) object() fyne.CanvasObject {
 	return p.card
 }
 
-func (p *previewCard) applyProject(project Project, stats textStats, label string) {
-	p.title.Text = label
-	p.title.Refresh()
-
-	displayText := stats.DisplayText
-	if strings.TrimSpace(displayText) == "" {
-		displayText = " "
+func (p *previewCard) applyProject(project Project, stats textStats, frame int) {
+	rendered, err := renderImage(project, stats, frame, 960, 430)
+	if err == nil {
+		p.image.Image = rendered
+		p.image.Refresh()
 	}
-	p.body.Text = displayText
-	p.body.Color = parseHexColor(project.Style.MainColor, color.NRGBA{R: 255, G: 96, B: 64, A: 255})
-	p.body.TextStyle = fyne.TextStyle{Monospace: true}
-	if project.Display.Mode == displayModeDotMatrix {
-		p.body.TextSize = 46
-	} else {
-		p.body.TextSize = 54
-	}
-	p.body.Alignment = textAlign(project.Layout.Alignment)
-	p.body.Refresh()
-
-	p.subtitle.Text = previewSubtitle(project, stats)
+	p.subtitle.Text = previewSubtitle(project, stats, frame)
 	p.subtitle.Refresh()
 	p.bg.FillColor = previewBackground(project)
 	p.bg.Refresh()
 }
 
-func previewSubtitle(project Project, stats textStats) string {
+func previewSubtitle(project Project, stats textStats, frame int) string {
+	frameState := buildAnimatedFrame(project, stats, frame)
 	return strings.Join([]string{
 		project.Display.Mode,
 		strings.Join(sortedLanguages(project.Charset.Languages), " + "),
 		project.Background.Mode,
+		"Frame " + strconv.Itoa(frameState.Frame),
 		"Unsupported: " + formatUnsupportedRunes(stats.UnsupportedUnique),
 	}, " • ")
 }
@@ -112,17 +86,6 @@ func previewBackground(project Project) color.NRGBA {
 		return color.NRGBA{R: 24, G: 18, B: 24, A: 255}
 	default:
 		return color.NRGBA{R: 5, G: 6, B: 8, A: 255}
-	}
-}
-
-func textAlign(alignment string) fyne.TextAlign {
-	switch alignment {
-	case alignmentLeft:
-		return fyne.TextAlignLeading
-	case alignmentRight:
-		return fyne.TextAlignTrailing
-	default:
-		return fyne.TextAlignCenter
 	}
 }
 
