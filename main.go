@@ -67,7 +67,7 @@ func buildTextAndStyleTab() fyne.CanvasObject {
 	glowColor := widget.NewButton("Glow", func() {})
 	inactiveColor := widget.NewButton("Неактивні сегменти", func() {})
 
-	left := container.NewVScroll(container.NewVBox(
+	left := paneScroll(container.NewVBox(
 		sectionCard("Charset / Font profile", container.NewVBox(
 			widget.NewCheck("Uppercase only", func(bool) {}),
 			widget.NewCheck("Автозаміна неподтримуваних символів", func(bool) {}),
@@ -112,8 +112,6 @@ func buildTextAndStyleTab() fyne.CanvasObject {
 			widget.NewCheck("Fixed cell width", func(bool) {}),
 		)),
 	))
-	left.SetMinSize(fyne.NewSize(410, 0))
-
 	previewBox := previewPanel("Статичне preview", "Миттєве оновлення під час вводу")
 	rightTools := sectionCard("Швидкі дії", container.NewGridWithColumns(3,
 		widget.NewButtonWithIcon("Оновити", theme.ViewRefreshIcon(), func() {}),
@@ -127,7 +125,7 @@ func buildTextAndStyleTab() fyne.CanvasObject {
 		widget.NewLabel("Preview background: checkerboard"),
 	))
 
-	right := container.NewBorder(nil, nil, nil, nil, container.NewVBox(previewBox, rightTools, rightInfo))
+	right := paneScroll(container.NewVBox(previewBox, rightTools, rightInfo))
 
 	split := container.NewHSplit(left, right)
 	split.Offset = 0.34
@@ -139,7 +137,7 @@ func buildAnimationTab() fyne.CanvasObject {
 	timeline := widget.NewSlider(0, 100)
 	timeline.Value = 37
 
-	left := container.NewVScroll(container.NewVBox(
+	left := paneScroll(container.NewVBox(
 		sectionCard("Тип анімації", container.NewVBox(
 			widget.NewSelect([]string{
 				"Scramble basic",
@@ -185,8 +183,6 @@ func buildAnimationTab() fyne.CanvasObject {
 			widget.NewCheck("Scanline effect", func(bool) {}),
 		)),
 	))
-	left.SetMinSize(fyne.NewSize(410, 0))
-
 	transport := sectionCard("Playback", container.NewVBox(
 		container.NewGridWithColumns(4,
 			widget.NewButtonWithIcon("Play", theme.MediaPlayIcon(), func() {}),
@@ -206,14 +202,14 @@ func buildAnimationTab() fyne.CanvasObject {
 		widget.NewLabel("Target text fixed at t=82%"),
 	))
 
-	right := container.NewVBox(preview, transport, meta)
+	right := paneScroll(container.NewVBox(preview, transport, meta))
 	split := container.NewHSplit(left, right)
 	split.Offset = 0.34
 	return split
 }
 
 func buildExportTab() fyne.CanvasObject {
-	left := container.NewVScroll(container.NewVBox(
+	left := paneScroll(container.NewVBox(
 		sectionCard("Output", container.NewVBox(
 			widget.NewSelect([]string{"PNG sequence", "Single PNG current frame", "MP4 with baked background", "MOV ProRes 4444"}, func(string) {}),
 			widget.NewEntry(),
@@ -264,8 +260,6 @@ func buildExportTab() fyne.CanvasObject {
 			widget.NewCheck("Keep intermediate frames", func(bool) {}),
 		)),
 	))
-	left.SetMinSize(fyne.NewSize(410, 0))
-
 	preview := previewPanel("Export preview", "Фінальний кадр / вибраний фон / safe area")
 	queue := sectionCard("Render control", container.NewVBox(
 		container.NewGridWithColumns(3,
@@ -288,14 +282,14 @@ func buildExportTab() fyne.CanvasObject {
 		widget.NewLabel("PNG / ProRes 4444 = монтажний master"),
 	))
 
-	right := container.NewVBox(preview, queue, alpha)
+	right := paneScroll(container.NewVBox(preview, queue, alpha))
 	split := container.NewHSplit(left, right)
 	split.Offset = 0.34
 	return split
 }
 
 func buildProjectTab() fyne.CanvasObject {
-	left := container.NewVScroll(container.NewVBox(
+	left := paneScroll(container.NewVBox(
 		sectionCard("Project", container.NewGridWithColumns(2,
 			widget.NewButtonWithIcon("New", theme.DocumentCreateIcon(), func() {}),
 			widget.NewButtonWithIcon("Open", theme.FolderOpenIcon(), func() {}),
@@ -318,8 +312,6 @@ func buildProjectTab() fyne.CanvasObject {
 			widget.NewButton("Import preset", func() {}),
 		)),
 	))
-	left.SetMinSize(fyne.NewSize(380, 0))
-
 	recent := widget.NewList(
 		func() int { return 6 },
 		func() fyne.CanvasObject {
@@ -361,7 +353,7 @@ func buildProjectTab() fyne.CanvasObject {
 	)
 	stylesBox := container.NewGridWrap(fyne.NewSize(300, 160), styles)
 
-	right := container.NewVScroll(container.NewVBox(
+	right := paneScroll(container.NewVBox(
 		sectionCard("Recent projects", recentBox),
 		sectionCard("Available presets", stylesBox),
 		sectionCard("Selected item", container.NewVBox(
@@ -386,6 +378,12 @@ func sectionCard(title string, content fyne.CanvasObject) fyne.CanvasObject {
 	return widget.NewCard(title, "", content)
 }
 
+func paneScroll(content fyne.CanvasObject) *container.Scroll {
+	scroll := container.NewScroll(content)
+	scroll.SetMinSize(fyne.NewSize(180, 180))
+	return scroll
+}
+
 func labeledSlider(name string, min, max float64) fyne.CanvasObject {
 	s := widget.NewSlider(min, max)
 	s.Value = (max - min) * 0.45
@@ -394,7 +392,7 @@ func labeledSlider(name string, min, max float64) fyne.CanvasObject {
 
 func previewPanel(title, subtitle string) fyne.CanvasObject {
 	bg := canvas.NewRectangle(color.RGBA{R: 8, G: 8, B: 8, A: 255})
-	bg.SetMinSize(fyne.NewSize(860, 430))
+	bg.SetMinSize(fyne.NewSize(0, 430))
 
 	glow := canvas.NewText("LOLA: RENNT", color.RGBA{R: 255, G: 96, B: 64, A: 255})
 	glow.TextSize = 54
