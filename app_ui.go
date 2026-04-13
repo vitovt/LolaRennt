@@ -80,6 +80,11 @@ type appUI struct {
 	supersamplingSlider  *widget.Slider
 	ffmpegCommand        *widget.Entry
 	exportSummary        *widget.Label
+	exportProgress       *widget.ProgressBar
+	exportLog            *widget.Entry
+	ffmpegStatus         *widget.Label
+	cancelRender         chan struct{}
+	exportRunning        bool
 
 	projectNameEntry *widget.Entry
 	notesEntry       *widget.Entry
@@ -557,7 +562,11 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 	}))
 	ui.ffmpegCommand = widget.NewMultiLineEntry()
 	ui.ffmpegCommand.Disable()
+	ui.exportLog = widget.NewMultiLineEntry()
+	ui.exportLog.Disable()
 	ui.exportSummary = widget.NewLabel("")
+	ui.exportProgress = widget.NewProgressBar()
+	ui.ffmpegStatus = widget.NewLabel("")
 	ui.exportPreview = newPreviewCard("Export preview")
 
 	left := paneScroll(container.NewVBox(
@@ -608,13 +617,20 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 
 	right := paneScroll(container.NewVBox(
 		ui.exportPreview.object(),
+		sectionCard("FFmpeg tools", ui.ffmpegStatus),
 		sectionCard("FFmpeg command", ui.ffmpegCommand),
 		sectionCard("Export summary", ui.exportSummary),
 		sectionCard("Render control", container.NewVBox(
+			ui.exportProgress,
 			container.NewGridWithColumns(2,
 				widget.NewButtonWithIcon("Render PNG sequence", theme.DocumentIcon(), ui.renderPNGSequenceAction),
 				widget.NewButtonWithIcon("Copy ffmpeg command", theme.ContentCopyIcon(), ui.copyFFmpegCommand),
 			),
+			container.NewGridWithColumns(2,
+				widget.NewButtonWithIcon("Cancel render", theme.CancelIcon(), ui.cancelRenderAction),
+				widget.NewButtonWithIcon("Refresh tools", theme.ViewRefreshIcon(), ui.refreshDerivedUI),
+			),
+			ui.exportLog,
 		)),
 	))
 
@@ -866,6 +882,7 @@ func (ui *appUI) refreshDerivedUI() {
 		ui.project.Background.FitMode,
 	))
 	ui.ffmpegCommand.SetText(ui.buildFFmpegCommand())
+	ui.ffmpegStatus.SetText(ui.ffmpegStatusText())
 
 	ui.setColorButtonLabel(ui.mainColorButton, "Main", ui.project.Style.MainColor)
 	ui.setColorButtonLabel(ui.glowColorButton, "Glow", ui.project.Style.GlowColor)
@@ -1027,6 +1044,7 @@ func (ui *appUI) saveToPath(path string) error {
 }
 
 func (ui *appUI) buildFFmpegCommand() string {
+	tools := detectFFmpegTools()
 	fps := maxInt(ui.project.Export.FPS, 1)
 	outputFolder := strings.TrimSpace(ui.project.Export.OutputFolder)
 	if outputFolder == "" {
@@ -1039,8 +1057,13 @@ func (ui *appUI) buildFFmpegCommand() string {
 
 	framePattern := filepath.ToSlash(filepath.Join(outputFolder, prefix+"_%05d.png"))
 	outputPath := filepath.ToSlash(filepath.Join(outputFolder, prefix+".mp4"))
+	ffmpegBin := "ffmpeg"
+	if tools.FFmpegPath != "" {
+		ffmpegBin = tools.FFmpegPath
+	}
 	return fmt.Sprintf(
-		"ffmpeg -framerate %d -i \"%s\" -c:v libx264 -pix_fmt yuv420p \"%s\"",
+		"\"%s\" -framerate %d -i \"%s\" -c:v libx264 -pix_fmt yuv420p \"%s\"",
+		ffmpegBin,
 		fps,
 		framePattern,
 		outputPath,
@@ -1053,12 +1076,54 @@ func (ui *appUI) copyFFmpegCommand() {
 }
 
 func (ui *appUI) renderPNGSequenceAction() {
-	outputFolder, count, err := renderPNGSequence(ui.project)
-	if err != nil {
-		dialog.ShowError(err, ui.window)
+	if ui.exportRunning {
+		ui.setStatus("Render is already running.")
 		return
 	}
-	ui.setStatus(fmt.Sprintf("Rendered %d PNG frames to %s", count, outputFolder))
+	ui.exportRunning = true
+	ui.cancelRender = make(chan struct{})
+	ui.exportProgress.SetValue(0)
+	ui.exportLog.SetText("")
+	ui.setStatus("PNG render started.")
+
+	project := ui.project
+	go func() {
+		outputFolder, count, err := renderPNGSequence(project, ui.cancelRender, func(step renderProgress) {
+			fyne.Do(func() {
+				if step.TotalFrames > 0 {
+					ui.exportProgress.SetValue(float64(step.CurrentFrame) / float64(step.TotalFrames))
+				}
+				ui.appendExportLog(fmt.Sprintf("[%d/%d] %s", step.CurrentFrame, step.TotalFrames, filepathBase(step.Filename)))
+			})
+		})
+
+		fyne.Do(func() {
+			ui.exportRunning = false
+			ui.cancelRender = nil
+			if err != nil {
+				if err == errRenderCancelled {
+					ui.appendExportLog("Render cancelled by user.")
+					ui.setStatus("Render cancelled.")
+					return
+				}
+				ui.appendExportLog("Render failed: " + err.Error())
+				dialog.ShowError(err, ui.window)
+				return
+			}
+			ui.exportProgress.SetValue(1)
+			ui.appendExportLog(fmt.Sprintf("Render complete: %d frames in %s", count, outputFolder))
+			ui.setStatus(fmt.Sprintf("Rendered %d PNG frames to %s", count, outputFolder))
+		})
+	}()
+}
+
+func (ui *appUI) cancelRenderAction() {
+	if !ui.exportRunning || ui.cancelRender == nil {
+		ui.setStatus("No active render to cancel.")
+		return
+	}
+	close(ui.cancelRender)
+	ui.cancelRender = nil
 }
 
 func (ui *appUI) pickOutputFolder() {
@@ -1143,6 +1208,28 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func (ui *appUI) appendExportLog(line string) {
+	current := strings.TrimSpace(ui.exportLog.Text)
+	if current == "" {
+		ui.exportLog.SetText(line)
+		return
+	}
+	ui.exportLog.SetText(current + "\n" + line)
+}
+
+func (ui *appUI) ffmpegStatusText() string {
+	tools := detectFFmpegTools()
+	ffmpeg := "not found"
+	ffprobe := "not found"
+	if tools.FFmpegPath != "" {
+		ffmpeg = tools.FFmpegPath
+	}
+	if tools.FFprobePath != "" {
+		ffprobe = tools.FFprobePath
+	}
+	return fmt.Sprintf("ffmpeg: %s\nffprobe: %s", ffmpeg, ffprobe)
 }
 
 func (ui *appUI) recentProjectPaths() []string {
