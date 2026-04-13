@@ -30,9 +30,8 @@ func renderImage(project Project, stats textStats, frame int, width, height int)
 	}
 
 	img := image.NewNRGBA(image.Rect(0, 0, width, height))
-	paintBackground(img, project)
-
 	animated := buildAnimatedFrame(project, stats, frame)
+	paintBackground(img, project, animated.Time)
 	lines := strings.Split(animated.Text, "\n")
 
 	switch project.Display.Mode {
@@ -50,7 +49,7 @@ func renderImage(project Project, stats textStats, frame int, width, height int)
 	return img, nil
 }
 
-func paintBackground(img *image.NRGBA, project Project) {
+func paintBackground(img *image.NRGBA, project Project, timeSec float64) {
 	bounds := img.Bounds()
 	switch project.Background.Mode {
 	case backgroundModeTransparent:
@@ -83,6 +82,13 @@ func paintBackground(img *image.NRGBA, project Project) {
 		draw.Draw(img, bounds, image.NewUniform(color.NRGBA{R: 18, G: 22, B: 28, A: 255}), image.Point{}, draw.Src)
 		drawPlaceholderBands(img, color.NRGBA{R: 56, G: 78, B: 86, A: 255}, color.NRGBA{R: 24, G: 32, B: 36, A: 255})
 	case backgroundModeVideo:
+		if project.Background.VideoPath != "" {
+			bg, err := loadVideoBackgroundFrame(project.Background.VideoPath, timeSec)
+			if err == nil {
+				drawImageBackground(img, bg, project.Background.FitMode)
+				return
+			}
+		}
 		draw.Draw(img, bounds, image.NewUniform(color.NRGBA{R: 16, G: 12, B: 20, A: 255}), image.Point{}, draw.Src)
 		drawPlaceholderBands(img, color.NRGBA{R: 83, G: 52, B: 89, A: 255}, color.NRGBA{R: 28, G: 20, B: 32, A: 255})
 	default:
