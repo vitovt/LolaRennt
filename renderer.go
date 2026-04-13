@@ -73,6 +73,13 @@ func paintBackground(img *image.NRGBA, project Project) {
 			}
 		}
 	case backgroundModeImage:
+		if project.Background.ImagePath != "" {
+			bg, err := loadBackgroundImage(project.Background.ImagePath)
+			if err == nil {
+				drawImageBackground(img, bg, project.Background.FitMode)
+				return
+			}
+		}
 		draw.Draw(img, bounds, image.NewUniform(color.NRGBA{R: 18, G: 22, B: 28, A: 255}), image.Point{}, draw.Src)
 		drawPlaceholderBands(img, color.NRGBA{R: 56, G: 78, B: 86, A: 255}, color.NRGBA{R: 24, G: 32, B: 36, A: 255})
 	case backgroundModeVideo:
