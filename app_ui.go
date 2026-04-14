@@ -42,6 +42,7 @@ type appUI struct {
 	cellScaleSlider   *widget.Slider
 	charSpacingSlider *widget.Slider
 	lineSpacingSlider *widget.Slider
+	paddingSlider     *widget.Slider
 	alignmentSelect   *widget.Select
 	statsLabel        *widget.Label
 	styleSummary      *widget.Label
@@ -232,6 +233,9 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 	ui.lineSpacingSlider = newSlider(0, 50, ui.bindFloat(func(value float64) {
 		ui.project.Layout.LineSpacing = value
 	}))
+	ui.paddingSlider = newSlider(0, 120, ui.bindFloat(func(value float64) {
+		ui.project.Layout.Padding = value
+	}))
 	ui.alignmentSelect = widget.NewSelect([]string{alignmentLeft, alignmentCenter, alignmentRight}, func(value string) {
 		if ui.suspend {
 			return
@@ -285,6 +289,8 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 			ui.charSpacingSlider,
 			widget.NewLabel("Line spacing"),
 			ui.lineSpacingSlider,
+			widget.NewLabel("Padding"),
+			ui.paddingSlider,
 			ui.alignmentSelect,
 		)),
 	))
@@ -810,6 +816,7 @@ func (ui *appUI) applyProjectToWidgets() {
 	ui.cellScaleSlider.SetValue(ui.project.Layout.CellScale)
 	ui.charSpacingSlider.SetValue(ui.project.Layout.CharacterSpacing)
 	ui.lineSpacingSlider.SetValue(ui.project.Layout.LineSpacing)
+	ui.paddingSlider.SetValue(ui.project.Layout.Padding)
 	ui.alignmentSelect.SetSelected(ui.project.Layout.Alignment)
 
 	ui.animationTypeSelect.SetSelected(ui.project.Animation.Type)
