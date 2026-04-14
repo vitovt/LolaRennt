@@ -47,6 +47,7 @@ func animateText(project Project, finalText string, frame, fps int) string {
 	order := orderIndices(animatable, runes, project.Animation.LockOrder, project.Animation.Seed)
 	pool := buildRandomPool(project)
 	seedBase := hashSeed(project.Animation.Seed)
+	switchFrame := scrambleSwitchFrame(frame, project.Animation.RandomSwitchRate, fps)
 
 	out := make([]rune, len(runes))
 	copy(out, runes)
@@ -63,25 +64,44 @@ func animateText(project Project, finalText string, frame, fps int) string {
 			continue
 		}
 
-		if frame < start {
-			out[idx] = scrambleRune(pool, seedBase, frame, idx, r, project.Animation.AllowEmptyCell)
-			continue
-		}
-
-		progress := float64(frame-start) / float64(maxInt(lockAt-start, 1))
-		switch project.Animation.LockMode {
-		case "Hard lock":
-			out[idx] = scrambleRune(pool, seedBase, frame, idx, r, project.Animation.AllowEmptyCell)
-		default:
-			if deterministicChance(seedBase, frame, idx) < progress {
-				out[idx] = r
-			} else {
-				out[idx] = scrambleRune(pool, seedBase, frame, idx, r, project.Animation.AllowEmptyCell)
-			}
-		}
+		out[idx] = animateRuneForMode(project, pool, seedBase, frame, switchFrame, idx, r, start, lockAt, perCharFrames)
 	}
 
 	return string(out)
+}
+
+func animateRuneForMode(project Project, pool []rune, seedBase uint64, frame, switchFrame, index int, target rune, start, lockAt, perCharFrames int) rune {
+	switch project.Animation.Type {
+	case "Scramble basic":
+		return scrambleRune(pool, seedBase, switchFrame, index, target, project.Animation.AllowEmptyCell)
+	case "Reveal then scramble then lock":
+		revealUntil := minInt(start+perCharFrames, lockAt)
+		if frame < start {
+			return ' '
+		}
+		if frame < revealUntil {
+			return target
+		}
+		return lockOrScrambleRune(project, pool, seedBase, frame, switchFrame, index, target, revealUntil, lockAt)
+	default:
+		if frame < start {
+			return scrambleRune(pool, seedBase, switchFrame, index, target, project.Animation.AllowEmptyCell)
+		}
+		return lockOrScrambleRune(project, pool, seedBase, frame, switchFrame, index, target, start, lockAt)
+	}
+}
+
+func lockOrScrambleRune(project Project, pool []rune, seedBase uint64, frame, switchFrame, index int, target rune, start, lockAt int) rune {
+	progress := float64(frame-start) / float64(maxInt(lockAt-start, 1))
+	switch project.Animation.LockMode {
+	case "Hard lock":
+		return scrambleRune(pool, seedBase, switchFrame, index, target, project.Animation.AllowEmptyCell)
+	default:
+		if deterministicChance(seedBase, frame, index) < progress {
+			return target
+		}
+		return scrambleRune(pool, seedBase, switchFrame, index, target, project.Animation.AllowEmptyCell)
+	}
 }
 
 func buildRandomPool(project Project) []rune {
@@ -111,15 +131,25 @@ func buildRandomPool(project Project) []rune {
 	}
 }
 
-func scrambleRune(pool []rune, seedBase uint64, frame, index int, fallback rune, allowEmpty bool) rune {
-	if allowEmpty && deterministicChance(seedBase, frame, index+991) < 0.08 {
+func scrambleRune(pool []rune, seedBase uint64, switchFrame, index int, fallback rune, allowEmpty bool) rune {
+	if allowEmpty && deterministicChance(seedBase, switchFrame, index+991) < 0.08 {
 		return ' '
 	}
 	if len(pool) == 0 {
 		return fallback
 	}
-	rng := rand.New(rand.NewSource(int64(seedBase) + int64(frame*131) + int64(index*17)))
+	rng := rand.New(rand.NewSource(int64(seedBase) + int64(switchFrame*131) + int64(index*17)))
 	return pool[rng.Intn(len(pool))]
+}
+
+func scrambleSwitchFrame(frame int, switchRate float64, fps int) int {
+	if frame <= 0 || fps <= 0 {
+		return 0
+	}
+	if switchRate <= 0 {
+		return frame
+	}
+	return int(math.Floor(float64(frame) * switchRate / float64(fps)))
 }
 
 func deterministicChance(seedBase uint64, frame, index int) float64 {
