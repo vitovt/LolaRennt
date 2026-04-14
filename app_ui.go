@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -61,6 +62,8 @@ type appUI struct {
 	timelineSlider      *widget.Slider
 	playbackInfo        *widget.Label
 	animationSummary    *widget.Label
+	playbackStop        chan struct{}
+	playbackRunning     bool
 
 	backgroundModeSelect *widget.Select
 	bgColorButton        *widget.Button
@@ -390,7 +393,7 @@ func (ui *appUI) buildAnimationTab() fyne.CanvasObject {
 		ui.refreshDerivedUI()
 	})
 	ui.timelineSlider = widget.NewSlider(0, 100)
-	ui.timelineSlider.Step = 1
+	ui.timelineSlider.Step = 0.1
 	ui.timelineSlider.OnChanged = func(_ float64) {
 		ui.refreshDerivedUI()
 	}
@@ -438,15 +441,18 @@ func (ui *appUI) buildAnimationTab() fyne.CanvasObject {
 	right := paneScroll(container.NewVBox(
 		ui.animationPreview.object(),
 		sectionCard("Playback", container.NewVBox(
-			container.NewGridWithColumns(4,
+			container.NewGridWithColumns(5,
 				widget.NewButtonWithIcon("Play", theme.MediaPlayIcon(), func() {
-					ui.setStatus("Playback preview is wired to state; timeline transport animation is not implemented yet.")
+					ui.startPlayback(false)
 				}),
 				widget.NewButtonWithIcon("Pause", theme.MediaPauseIcon(), func() {
-					ui.setStatus("Pause is reserved for the next renderer slice.")
+					ui.pausePlayback()
 				}),
 				widget.NewButtonWithIcon("Stop", theme.MediaStopIcon(), func() {
-					ui.timelineSlider.SetValue(0)
+					ui.stopPlayback(true)
+				}),
+				widget.NewButtonWithIcon("Restart", theme.ViewRefreshIcon(), func() {
+					ui.restartPlayback()
 				}),
 				widget.NewButtonWithIcon("Loop", theme.ViewRefreshIcon(), func() {
 					ui.loopCheck.SetChecked(!ui.loopCheck.Checked)
@@ -846,7 +852,7 @@ func (ui *appUI) refreshDerivedUI() {
 
 	stats := analyzeText(ui.project.Text.Content, ui.project.Charset.Languages, ui.project.Text.UppercaseOnly, ui.project.Text.AutoReplaceUnsupported)
 	ui.staticPreview.applyProject(ui.project, stats, ui.project.Export.StartFrame)
-	previewFrame := ui.project.Export.StartFrame + int((ui.timelineSlider.Value/100.0)*float64(maxInt(ui.project.Export.EndFrame-ui.project.Export.StartFrame, 0)))
+	previewFrame := ui.currentPreviewFrame()
 	ui.animationPreview.applyProject(ui.project, stats, previewFrame)
 	ui.exportPreview.applyProject(ui.project, stats, ui.project.Export.EndFrame)
 
@@ -898,16 +904,158 @@ func (ui *appUI) refreshDerivedUI() {
 	ui.projectPathLabel.SetText(projectPath)
 	ui.metadataLabel.SetText(fmt.Sprintf("Created: %s\nUpdated: %s", ui.project.Metadata.CreatedAt, ui.project.Metadata.UpdatedAt))
 	ui.refreshRecentProjects()
-	ui.setStatus(fmt.Sprintf("Project ready • %s • Seed %s", ui.project.Metadata.ProjectName, ui.project.Animation.Seed))
+	if ui.playbackRunning {
+		ui.setStatus(fmt.Sprintf("Playback running • Frame %d / %d", ui.currentPreviewFrame(), ui.playbackEndFrame()))
+	} else {
+		ui.setStatus(fmt.Sprintf("Project ready • %s • Seed %s", ui.project.Metadata.ProjectName, ui.project.Animation.Seed))
+	}
 }
 
 func (ui *appUI) playbackSummary() string {
 	fps := maxInt(ui.project.Export.FPS, 1)
-	totalFrames := maxInt(ui.project.Export.EndFrame-ui.project.Export.StartFrame+1, 1)
-	frame := int((ui.timelineSlider.Value / 100) * float64(totalFrames-1))
-	currentFrame := ui.project.Export.StartFrame + frame
-	currentTime := float64(currentFrame) / float64(fps)
-	return fmt.Sprintf("Current time: %.2f s • Frame: %d / %d • Preview FPS: %d", currentTime, currentFrame, ui.project.Export.EndFrame, fps)
+	currentFrame := ui.currentPreviewFrame()
+	currentTime := float64(currentFrame-ui.project.Export.StartFrame) / float64(fps)
+	state := "Paused"
+	if ui.playbackRunning {
+		state = "Playing"
+	}
+	return fmt.Sprintf("%s • Current time: %.2f s • Frame: %d / %d • Preview FPS: %d", state, currentTime, currentFrame, ui.playbackEndFrame(), fps)
+}
+
+func (ui *appUI) currentPreviewFrame() int {
+	startFrame := ui.project.Export.StartFrame
+	endFrame := ui.playbackEndFrame()
+	totalFrames := endFrame - startFrame + 1
+	if totalFrames <= 1 {
+		return startFrame
+	}
+
+	progress := ui.timelineSlider.Value / 100.0
+	frameOffset := int(progress*float64(totalFrames-1) + 0.5)
+	frame := startFrame + frameOffset
+	if frame > endFrame {
+		return endFrame
+	}
+	return frame
+}
+
+func (ui *appUI) playbackEndFrame() int {
+	if ui.project.Export.EndFrame < ui.project.Export.StartFrame {
+		return ui.project.Export.StartFrame
+	}
+	return ui.project.Export.EndFrame
+}
+
+func (ui *appUI) setPreviewFrame(frame int) {
+	startFrame := ui.project.Export.StartFrame
+	endFrame := ui.playbackEndFrame()
+	if frame < startFrame {
+		frame = startFrame
+	}
+	if frame > endFrame {
+		frame = endFrame
+	}
+
+	totalFrames := endFrame - startFrame + 1
+	if totalFrames <= 1 {
+		ui.timelineSlider.SetValue(0)
+		return
+	}
+
+	progress := float64(frame-startFrame) / float64(totalFrames-1)
+	ui.timelineSlider.SetValue(progress * 100.0)
+}
+
+func (ui *appUI) startPlayback(restart bool) {
+	if restart {
+		ui.setPreviewFrame(ui.project.Export.StartFrame)
+	}
+	if ui.playbackRunning {
+		return
+	}
+	if ui.currentPreviewFrame() >= ui.playbackEndFrame() {
+		ui.setPreviewFrame(ui.project.Export.StartFrame)
+	}
+
+	fps := maxInt(ui.project.Export.FPS, 1)
+	interval := time.Second / time.Duration(fps)
+	stopCh := make(chan struct{})
+	ui.playbackStop = stopCh
+	ui.playbackRunning = true
+	ui.refreshDerivedUI()
+
+	go func(stopCh chan struct{}) {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-stopCh:
+				return
+			case <-ticker.C:
+				fyne.Do(func() {
+					if ui.playbackStop != stopCh {
+						return
+					}
+					ui.advancePlaybackFrame()
+				})
+			}
+		}
+	}(stopCh)
+}
+
+func (ui *appUI) advancePlaybackFrame() {
+	nextFrame := ui.currentPreviewFrame() + 1
+	if nextFrame > ui.playbackEndFrame() {
+		if ui.project.Animation.Loop {
+			ui.setPreviewFrame(ui.project.Export.StartFrame)
+			return
+		}
+		ui.stopPlaybackLoop()
+		ui.setPreviewFrame(ui.playbackEndFrame())
+		ui.refreshDerivedUI()
+		ui.setStatus("Playback finished.")
+		return
+	}
+	ui.setPreviewFrame(nextFrame)
+}
+
+func (ui *appUI) pausePlayback() {
+	if !ui.playbackRunning {
+		ui.setStatus("Playback is not running.")
+		return
+	}
+	ui.stopPlaybackLoop()
+	ui.refreshDerivedUI()
+	ui.setStatus("Playback paused.")
+}
+
+func (ui *appUI) stopPlayback(resetToStart bool) {
+	wasRunning := ui.playbackRunning
+	ui.stopPlaybackLoop()
+	if resetToStart {
+		ui.setPreviewFrame(ui.project.Export.StartFrame)
+	}
+	ui.refreshDerivedUI()
+	if wasRunning {
+		ui.setStatus("Playback stopped.")
+	} else {
+		ui.setStatus("Preview reset to the first frame.")
+	}
+}
+
+func (ui *appUI) restartPlayback() {
+	ui.stopPlaybackLoop()
+	ui.setPreviewFrame(ui.project.Export.StartFrame)
+	ui.startPlayback(true)
+}
+
+func (ui *appUI) stopPlaybackLoop() {
+	if ui.playbackStop != nil {
+		close(ui.playbackStop)
+		ui.playbackStop = nil
+	}
+	ui.playbackRunning = false
 }
 
 func (ui *appUI) setColorButtonLabel(button *widget.Button, title, hex string) {
@@ -941,6 +1089,7 @@ func (ui *appUI) setStatus(message string) {
 }
 
 func (ui *appUI) newProject() {
+	ui.stopPlaybackLoop()
 	ui.project = normalizeProject(defaultProject())
 	ui.projectPath = ""
 	ui.ensureSeed()
@@ -971,6 +1120,7 @@ func (ui *appUI) openProjectDialog() {
 			return
 		}
 
+		ui.stopPlaybackLoop()
 		ui.project = normalizeProject(loaded)
 		ui.ensureSeed()
 		if reader.URI() != nil {
@@ -1324,6 +1474,7 @@ func (ui *appUI) loadProjectFromPath(path string) error {
 	if err := json.Unmarshal(raw, &loaded); err != nil {
 		return err
 	}
+	ui.stopPlaybackLoop()
 	ui.project = normalizeProject(loaded)
 	ui.ensureSeed()
 	ui.projectPath = path

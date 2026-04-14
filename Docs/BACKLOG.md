@@ -5,11 +5,11 @@ Legend:
 - `[x]` done
 
 Current focus:
-- [ ] Implement real preview playback transport: `Play`, `Pause`, `Stop`, `Restart`, `Loop`, and timeline auto-advance
+- [x] Implement real preview playback transport: `Play`, `Pause`, `Stop`, `Restart`, `Loop`, and timeline auto-advance
+- [ ] Make animation mode actually affect rendering for `Scramble basic`, `Scramble with lock`, and `Reveal then scramble then lock`
 
 ## P0 Critical
 
-- [ ] Make animation mode actually affect rendering for `Scramble basic`, `Scramble with lock`, and `Reveal then scramble then lock`
 - [ ] Make `Random switch rate` affect animation output instead of being UI-only
 - [ ] Add preview controls: zoom, checkerboard, safe area toggle, and background preview modes
 - [ ] Add text validation UX: supported charset viewer, unsupported character highlighting, and replacement guidance
