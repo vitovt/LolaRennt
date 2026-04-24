@@ -247,7 +247,7 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 
 	ui.statsLabel = widget.NewLabel("")
 	ui.styleSummary = widget.NewLabel("")
-	ui.staticPreview = newPreviewCard("Static preview")
+	ui.staticPreview = newPreviewCard("Static preview", ui.window)
 
 	left := paneScroll(container.NewVBox(
 		sectionCard("Charset / Languages", container.NewVBox(
@@ -405,7 +405,7 @@ func (ui *appUI) buildAnimationTab() fyne.CanvasObject {
 	}
 	ui.playbackInfo = widget.NewLabel("")
 	ui.animationSummary = widget.NewLabel("")
-	ui.animationPreview = newPreviewCard("Animation preview")
+	ui.animationPreview = newPreviewCard("Animation preview", ui.window)
 
 	left := paneScroll(container.NewVBox(
 		sectionCard("Тип анімації", container.NewVBox(
@@ -579,7 +579,7 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 	ui.exportSummary = widget.NewLabel("")
 	ui.exportProgress = widget.NewProgressBar()
 	ui.ffmpegStatus = widget.NewLabel("")
-	ui.exportPreview = newPreviewCard("Export preview")
+	ui.exportPreview = newPreviewCard("Export preview", ui.window)
 
 	left := paneScroll(container.NewVBox(
 		sectionCard("Output", container.NewVBox(

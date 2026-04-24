@@ -8,12 +8,12 @@ Current focus:
 - [x] Implement real preview playback transport: `Play`, `Pause`, `Stop`, `Restart`, `Loop`, and timeline auto-advance
 - [x] Make animation mode actually affect rendering for `Scramble basic`, `Scramble with lock`, and `Reveal then scramble then lock`
 - [x] Make `Random switch rate` affect animation output instead of being UI-only
-- [ ] Add preview controls: zoom, checkerboard, safe area toggle, and background preview modes
+- [x] Add preview controls: zoom, checkerboard, safe area toggle, and background preview modes
 - [x] Add missing layout control for `padding`
+- [ ] Add text validation UX: supported charset viewer, unsupported character highlighting, and replacement guidance
 
 ## P0 Critical
 
-- [ ] Add preview controls: zoom, checkerboard, safe area toggle, and background preview modes
 - [ ] Add text validation UX: supported charset viewer, unsupported character highlighting, and replacement guidance
 - [ ] Add background image `opacity`
 - [ ] Make `supersampling` affect export output instead of only being stored in project state
