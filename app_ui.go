@@ -45,6 +45,8 @@ type appUI struct {
 	paddingSlider     *widget.Slider
 	alignmentSelect   *widget.Select
 	statsLabel        *widget.Label
+	validationPreview *widget.Label
+	replacementGuide  *widget.Label
 	styleSummary      *widget.Label
 
 	animationTypeSelect *widget.Select
@@ -247,6 +249,10 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 	})
 
 	ui.statsLabel = widget.NewLabel("")
+	ui.validationPreview = widget.NewLabel("")
+	ui.validationPreview.Wrapping = fyne.TextWrapWord
+	ui.replacementGuide = widget.NewLabel("")
+	ui.replacementGuide.Wrapping = fyne.TextWrapWord
 	ui.styleSummary = widget.NewLabel("")
 	ui.staticPreview = newPreviewCard("Static preview", ui.window)
 
@@ -255,6 +261,7 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 			ui.languageChecks,
 			ui.uppercaseCheck,
 			ui.autoReplaceCheck,
+			widget.NewButton("Supported charset", ui.showSupportedCharsetDialog),
 		)),
 		sectionCard("Display type", container.NewVBox(
 			ui.displayType,
@@ -274,6 +281,8 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 				}),
 			),
 			ui.statsLabel,
+			ui.validationPreview,
+			ui.replacementGuide,
 		)),
 		sectionCard("Колір", container.NewVBox(
 			ui.colorModeSelect,
@@ -871,6 +880,8 @@ func (ui *appUI) refreshDerivedUI() {
 	ui.exportPreview.applyProject(ui.project, stats, ui.project.Export.EndFrame)
 
 	ui.statsLabel.SetText(fmt.Sprintf("Символів: %d • Рядків: %d • Unsupported: %s", stats.CharacterCount, stats.LineCount, formatUnsupportedRunes(stats.UnsupportedUnique)))
+	ui.validationPreview.SetText("Validation preview:\n" + buildValidationPreview(ui.project.Text.Content, ui.project.Charset.Languages, ui.project.Text.UppercaseOnly))
+	ui.replacementGuide.SetText(formatReplacementGuidance(stats.UnsupportedUnique, ui.project.Text.AutoReplaceUnsupported))
 	ui.styleSummary.SetText(fmt.Sprintf(
 		"Mode: %s\nLanguages: %s\nMain: %s\nGlow: %.0f%%\nInactive: %.0f%%\nAlignment: %s",
 		ui.project.Display.Mode,
@@ -1086,6 +1097,21 @@ func (ui *appUI) pickColor(title, current string, apply func(string)) {
 	picker.Advanced = true
 	picker.Show()
 	picker.SetColor(parseHexColor(current, color.NRGBA{R: 255, G: 96, B: 64, A: 255}))
+}
+
+func (ui *appUI) showSupportedCharsetDialog() {
+	viewer := widget.NewMultiLineEntry()
+	viewer.SetText(buildSupportedCharsetSummary(ui.project.Charset.Languages))
+	viewer.Wrapping = fyne.TextWrapWord
+	viewer.Disable()
+	viewer.SetMinRowsVisible(12)
+
+	dialog.NewCustom(
+		"Supported charset",
+		"Close",
+		container.NewScroll(viewer),
+		ui.window,
+	).Show()
 }
 
 func (ui *appUI) touchProject() {

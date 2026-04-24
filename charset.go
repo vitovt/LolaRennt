@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -114,6 +116,63 @@ func formatUnsupportedRunes(runes []rune) string {
 		parts = append(parts, string(r))
 	}
 	return strings.Join(parts, " ")
+}
+
+func buildValidationPreview(text string, languages []string, uppercaseOnly bool) string {
+	normalized := strings.ReplaceAll(text, "\r\n", "\n")
+	if uppercaseOnly {
+		normalized = strings.ToUpper(normalized)
+	}
+	if normalized == "" {
+		return "(empty)"
+	}
+
+	supported := supportedRunes(languages)
+	var out strings.Builder
+	for _, r := range normalized {
+		if supported[r] {
+			out.WriteRune(r)
+			continue
+		}
+		out.WriteString("[")
+		out.WriteRune(r)
+		out.WriteString("]")
+	}
+	return out.String()
+}
+
+func formatReplacementGuidance(unsupported []rune, autoReplace bool) string {
+	if len(unsupported) == 0 {
+		return "Replacement guidance: none"
+	}
+
+	parts := make([]string, 0, len(unsupported))
+	for _, r := range unsupported {
+		if autoReplace {
+			parts = append(parts, fmt.Sprintf("%s -> ?", string(r)))
+		} else {
+			parts = append(parts, fmt.Sprintf("%s is unsupported", string(r)))
+		}
+	}
+
+	if autoReplace {
+		return "Auto-replace targets: " + strings.Join(parts, ", ")
+	}
+	return "Replacement guidance: " + strings.Join(parts, ", ")
+}
+
+func buildSupportedCharsetSummary(languages []string) string {
+	combined := make([]rune, 0, 128)
+	for r := range supportedRunes(languages) {
+		combined = append(combined, r)
+	}
+	sort.Slice(combined, func(i, j int) bool { return combined[i] < combined[j] })
+
+	return fmt.Sprintf(
+		"Languages: %s\n\nSupported characters:\n%s",
+		strings.Join(sortedLanguages(languages), ", "),
+		string(combined),
+	)
 }
 
 func ensureSeed(seed string) string {
