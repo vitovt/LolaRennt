@@ -42,6 +42,8 @@ type appUI struct {
 	inactiveColorBtn  *widget.Button
 	glowSlider        *widget.Slider
 	inactiveSlider    *widget.Slider
+	flickerSlider     *widget.Slider
+	noiseSlider       *widget.Slider
 	scanlineCheck     *widget.Check
 	cellScaleSlider   *widget.Slider
 	charSpacingSlider *widget.Slider
@@ -242,6 +244,12 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 	ui.inactiveSlider = newSlider(0, 100, ui.bindFloat(func(value float64) {
 		ui.project.Style.InactiveVisibility = value
 	}))
+	ui.flickerSlider = newSlider(0, 100, ui.bindFloat(func(value float64) {
+		ui.project.Style.FlickerAmount = value
+	}))
+	ui.noiseSlider = newSlider(0, 100, ui.bindFloat(func(value float64) {
+		ui.project.Style.NoiseAmount = value
+	}))
 	ui.scanlineCheck = widget.NewCheck("Scanline overlay", func(value bool) {
 		if ui.suspend {
 			return
@@ -320,6 +328,12 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 			ui.glowSlider,
 			widget.NewLabel("Inactive segment visibility"),
 			ui.inactiveSlider,
+		)),
+		sectionCard("Effects", container.NewVBox(
+			widget.NewLabel("Flicker amount"),
+			ui.flickerSlider,
+			widget.NewLabel("Noise amount"),
+			ui.noiseSlider,
 			ui.scanlineCheck,
 		)),
 		sectionCard("Layout", container.NewVBox(
@@ -1100,6 +1114,8 @@ func (ui *appUI) applyProjectToWidgets() {
 	ui.colorModeSelect.SetSelected(ui.project.Style.ColorMode)
 	ui.glowSlider.SetValue(ui.project.Style.GlowIntensity)
 	ui.inactiveSlider.SetValue(ui.project.Style.InactiveVisibility)
+	ui.flickerSlider.SetValue(ui.project.Style.FlickerAmount)
+	ui.noiseSlider.SetValue(ui.project.Style.NoiseAmount)
 	ui.scanlineCheck.SetChecked(ui.project.Style.Scanlines)
 	ui.cellScaleSlider.SetValue(ui.project.Layout.CellScale)
 	ui.charSpacingSlider.SetValue(ui.project.Layout.CharacterSpacing)
@@ -1160,12 +1176,14 @@ func (ui *appUI) refreshDerivedUI() {
 	ui.refreshValidationGrid()
 	ui.replacementGuide.SetText(formatReplacementGuidance(stats.UnsupportedUnique, ui.project.Text.AutoReplaceUnsupported))
 	ui.styleSummary.SetText(fmt.Sprintf(
-		"Mode: %s\nLanguages: %s\nMain: %s\nGlow: %.0f%%\nInactive: %.0f%%\nScanlines: %t\nAlignment: %s",
+		"Mode: %s\nLanguages: %s\nMain: %s\nGlow: %.0f%%\nInactive: %.0f%%\nFlicker: %.0f%%\nNoise: %.0f%%\nScanlines: %t\nAlignment: %s",
 		ui.project.Display.Mode,
 		strings.Join(sortedLanguages(ui.project.Charset.Languages), ", "),
 		ui.project.Style.MainColor,
 		ui.project.Style.GlowIntensity,
 		ui.project.Style.InactiveVisibility,
+		ui.project.Style.FlickerAmount,
+		ui.project.Style.NoiseAmount,
 		ui.project.Style.Scanlines,
 		ui.project.Layout.Alignment,
 	))

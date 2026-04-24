@@ -27,8 +27,8 @@ Current focus:
 
 ## P2 Nice To Have Within Spec
 
-- [ ] Add `flicker` control
-- [ ] Add `noise overlay`
+- [x] Add `flicker` control
+- [x] Add `noise overlay`
 - [x] Add `scanline` toggle
 - [ ] Add `simultaneous final lock`
 - [ ] Add `immediate punctuation lock`

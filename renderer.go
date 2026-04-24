@@ -44,6 +44,12 @@ func renderImage(project Project, stats textStats, frame int, width, height int)
 			return nil, err
 		}
 	}
+	if project.Style.FlickerAmount > 0 {
+		applyFlickerEffect(img, project.Style.FlickerAmount, animated.Frame, project.Animation.Seed)
+	}
+	if project.Style.NoiseAmount > 0 {
+		applyNoiseOverlay(img, project.Style.NoiseAmount, animated.Frame, project.Animation.Seed)
+	}
 	if project.Style.Scanlines {
 		applyScanlineOverlay(img)
 	}
@@ -153,11 +159,76 @@ func applyScanlineOverlay(img *image.NRGBA) {
 	}
 }
 
+func applyFlickerEffect(img *image.NRGBA, amount float64, frame int, seed string) {
+	seedBase := hashSeed(seed)
+	wave := math.Sin(float64(frame)*0.55 + float64(seedBase%360)*math.Pi/180)
+	jitter := effectNoiseValue(seedBase, frame, 0, 0)
+	intensity := 1 + ((wave*0.65 + jitter*0.35) * (amount / 100.0) * 0.16)
+	intensity = minFloat(1.2, math.Max(0.82, intensity))
+
+	bounds := img.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			scaleNRGBAPixel(img, x, y, intensity)
+		}
+	}
+}
+
+func applyNoiseOverlay(img *image.NRGBA, amount float64, frame int, seed string) {
+	seedBase := hashSeed(seed)
+	strength := maxInt(int((amount/100.0)*24), 1)
+	bounds := img.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y += 2 {
+		for x := bounds.Min.X; x < bounds.Max.X; x += 2 {
+			delta := int(effectNoiseValue(seedBase, frame, x, y) * float64(strength))
+			for yy := y; yy < minInt(y+2, bounds.Max.Y); yy++ {
+				for xx := x; xx < minInt(x+2, bounds.Max.X); xx++ {
+					adjustNRGBAPixel(img, xx, yy, delta)
+				}
+			}
+		}
+	}
+}
+
+func effectNoiseValue(seedBase uint64, frame, x, y int) float64 {
+	value := uint64(x+1)*0x9E3779B185EBCA87 ^ uint64(y+1)*0xC2B2AE3D27D4EB4F
+	value ^= uint64(frame+1) * 0x165667B19E3779F9
+	value ^= seedBase
+	value ^= value >> 30
+	value *= 0xBF58476D1CE4E5B9
+	value ^= value >> 27
+	value *= 0x94D049BB133111EB
+	value ^= value >> 31
+	return float64(value&0xff)/255.0*2 - 1
+}
+
 func darkenNRGBAPixel(img *image.NRGBA, x, y int, amount float64) {
+	scaleNRGBAPixel(img, x, y, amount)
+}
+
+func scaleNRGBAPixel(img *image.NRGBA, x, y int, amount float64) {
 	offset := img.PixOffset(x, y)
 	img.Pix[offset+0] = uint8(float64(img.Pix[offset+0]) * amount)
 	img.Pix[offset+1] = uint8(float64(img.Pix[offset+1]) * amount)
 	img.Pix[offset+2] = uint8(float64(img.Pix[offset+2]) * amount)
+}
+
+func adjustNRGBAPixel(img *image.NRGBA, x, y, delta int) {
+	offset := img.PixOffset(x, y)
+	img.Pix[offset+0] = clampByte(img.Pix[offset+0], delta)
+	img.Pix[offset+1] = clampByte(img.Pix[offset+1], delta)
+	img.Pix[offset+2] = clampByte(img.Pix[offset+2], delta)
+}
+
+func clampByte(value uint8, delta int) uint8 {
+	result := int(value) + delta
+	if result < 0 {
+		return 0
+	}
+	if result > 255 {
+		return 255
+	}
+	return uint8(result)
 }
 
 type displayLayout struct {
