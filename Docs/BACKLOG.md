@@ -29,6 +29,6 @@ Current focus:
 
 - [ ] Add `flicker` control
 - [ ] Add `noise overlay`
-- [ ] Add `scanline` toggle
+- [x] Add `scanline` toggle
 - [ ] Add `simultaneous final lock`
 - [ ] Add `immediate punctuation lock`

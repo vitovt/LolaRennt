@@ -59,6 +59,7 @@ type StyleSettings struct {
 	InactiveColor      string  `json:"inactive_color"`
 	GlowIntensity      float64 `json:"glow_intensity"`
 	InactiveVisibility float64 `json:"inactive_visibility"`
+	Scanlines          bool    `json:"scanlines"`
 }
 
 type LayoutSettings struct {

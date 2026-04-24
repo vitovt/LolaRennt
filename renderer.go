@@ -44,6 +44,9 @@ func renderImage(project Project, stats textStats, frame int, width, height int)
 			return nil, err
 		}
 	}
+	if project.Style.Scanlines {
+		applyScanlineOverlay(img)
+	}
 
 	drawFooterInfo(img, project, animated)
 	return img, nil
@@ -131,6 +134,30 @@ func drawDisplayText(img *image.NRGBA, project Project, lines []string, segmentM
 		}
 	}
 	return nil
+}
+
+func applyScanlineOverlay(img *image.NRGBA) {
+	bounds := img.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		if y%4 == 0 {
+			for x := bounds.Min.X; x < bounds.Max.X; x++ {
+				darkenNRGBAPixel(img, x, y, 0.74)
+			}
+			continue
+		}
+		if y%4 == 2 {
+			for x := bounds.Min.X; x < bounds.Max.X; x++ {
+				darkenNRGBAPixel(img, x, y, 0.9)
+			}
+		}
+	}
+}
+
+func darkenNRGBAPixel(img *image.NRGBA, x, y int, amount float64) {
+	offset := img.PixOffset(x, y)
+	img.Pix[offset+0] = uint8(float64(img.Pix[offset+0]) * amount)
+	img.Pix[offset+1] = uint8(float64(img.Pix[offset+1]) * amount)
+	img.Pix[offset+2] = uint8(float64(img.Pix[offset+2]) * amount)
 }
 
 type displayLayout struct {

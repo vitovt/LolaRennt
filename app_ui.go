@@ -42,6 +42,7 @@ type appUI struct {
 	inactiveColorBtn  *widget.Button
 	glowSlider        *widget.Slider
 	inactiveSlider    *widget.Slider
+	scanlineCheck     *widget.Check
 	cellScaleSlider   *widget.Slider
 	charSpacingSlider *widget.Slider
 	lineSpacingSlider *widget.Slider
@@ -241,6 +242,14 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 	ui.inactiveSlider = newSlider(0, 100, ui.bindFloat(func(value float64) {
 		ui.project.Style.InactiveVisibility = value
 	}))
+	ui.scanlineCheck = widget.NewCheck("Scanline overlay", func(value bool) {
+		if ui.suspend {
+			return
+		}
+		ui.project.Style.Scanlines = value
+		ui.touchProject()
+		ui.refreshDerivedUI()
+	})
 	ui.cellScaleSlider = newSlider(0.6, 2.4, ui.bindFloat(func(value float64) {
 		ui.project.Layout.CellScale = value
 	}))
@@ -311,6 +320,7 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 			ui.glowSlider,
 			widget.NewLabel("Inactive segment visibility"),
 			ui.inactiveSlider,
+			ui.scanlineCheck,
 		)),
 		sectionCard("Layout", container.NewVBox(
 			widget.NewLabel("Cell scale"),
@@ -1090,6 +1100,7 @@ func (ui *appUI) applyProjectToWidgets() {
 	ui.colorModeSelect.SetSelected(ui.project.Style.ColorMode)
 	ui.glowSlider.SetValue(ui.project.Style.GlowIntensity)
 	ui.inactiveSlider.SetValue(ui.project.Style.InactiveVisibility)
+	ui.scanlineCheck.SetChecked(ui.project.Style.Scanlines)
 	ui.cellScaleSlider.SetValue(ui.project.Layout.CellScale)
 	ui.charSpacingSlider.SetValue(ui.project.Layout.CharacterSpacing)
 	ui.lineSpacingSlider.SetValue(ui.project.Layout.LineSpacing)
@@ -1149,12 +1160,13 @@ func (ui *appUI) refreshDerivedUI() {
 	ui.refreshValidationGrid()
 	ui.replacementGuide.SetText(formatReplacementGuidance(stats.UnsupportedUnique, ui.project.Text.AutoReplaceUnsupported))
 	ui.styleSummary.SetText(fmt.Sprintf(
-		"Mode: %s\nLanguages: %s\nMain: %s\nGlow: %.0f%%\nInactive: %.0f%%\nAlignment: %s",
+		"Mode: %s\nLanguages: %s\nMain: %s\nGlow: %.0f%%\nInactive: %.0f%%\nScanlines: %t\nAlignment: %s",
 		ui.project.Display.Mode,
 		strings.Join(sortedLanguages(ui.project.Charset.Languages), ", "),
 		ui.project.Style.MainColor,
 		ui.project.Style.GlowIntensity,
 		ui.project.Style.InactiveVisibility,
+		ui.project.Style.Scanlines,
 		ui.project.Layout.Alignment,
 	))
 
