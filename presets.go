@@ -3,9 +3,18 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+)
+
+type presetKind string
+
+const (
+	presetKindStyle     presetKind = "style"
+	presetKindAnimation presetKind = "animation"
+	presetKindExport    presetKind = "export"
 )
 
 type projectPreset struct {
@@ -216,11 +225,91 @@ func firstPresetName(items []projectPreset) string {
 
 func findPresetByName(name string, items []projectPreset) (projectPreset, bool) {
 	for _, item := range items {
-		if item.Name == name {
+		if strings.EqualFold(item.Name, name) {
 			return item, true
 		}
 	}
 	return projectPreset{}, false
+}
+
+func presetNameExists(name string, items []projectPreset) bool {
+	_, ok := findPresetByName(name, items)
+	return ok
+}
+
+func uniquePresetName(base string, items []projectPreset) string {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "Preset"
+	}
+	if !presetNameExists(base, items) {
+		return base
+	}
+	for suffix := 2; suffix < 1000; suffix++ {
+		candidate := fmt.Sprintf("%s %d", base, suffix)
+		if !presetNameExists(candidate, items) {
+			return candidate
+		}
+	}
+	return base + " Copy"
+}
+
+func upsertPreset(items []projectPreset, preset projectPreset) []projectPreset {
+	preset.Name = strings.TrimSpace(preset.Name)
+	if preset.Name == "" {
+		return items
+	}
+	updated := clonePresetBucket(items)
+	for index, item := range updated {
+		if strings.EqualFold(item.Name, preset.Name) {
+			updated[index] = preset
+			return updated
+		}
+	}
+	return append(updated, preset)
+}
+
+func removePresetByName(items []projectPreset, name string) ([]projectPreset, bool) {
+	updated := make([]projectPreset, 0, len(items))
+	removed := false
+	for _, item := range items {
+		if strings.EqualFold(item.Name, name) {
+			removed = true
+			continue
+		}
+		updated = append(updated, item)
+	}
+	return updated, removed
+}
+
+func capturePresetFromProject(kind presetKind, name string, project Project) projectPreset {
+	snapshot := normalizeProject(defaultProject())
+	snapshot.Text = project.Text
+	snapshot.Charset = project.Charset
+
+	switch kind {
+	case presetKindStyle:
+		snapshot.Display = project.Display
+		snapshot.Style = project.Style
+		snapshot.Layout = project.Layout
+	case presetKindAnimation:
+		snapshot.Animation = project.Animation
+	case presetKindExport:
+		snapshot.Background = project.Background
+		snapshot.Export.Width = project.Export.Width
+		snapshot.Export.Height = project.Export.Height
+		snapshot.Export.FPS = project.Export.FPS
+		snapshot.Export.StartFrame = project.Export.StartFrame
+		snapshot.Export.EndFrame = project.Export.EndFrame
+		snapshot.Export.FrameScope = project.Export.FrameScope
+		snapshot.Export.Supersampling = project.Export.Supersampling
+		snapshot.Export.PreviewRegion = fullExportRegion()
+	}
+
+	return projectPreset{
+		Name:    strings.TrimSpace(name),
+		Project: normalizeProject(snapshot),
+	}
 }
 
 func applyStylePresetByName(project *Project, name string, items []projectPreset) bool {

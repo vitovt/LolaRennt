@@ -794,37 +794,233 @@ func (ui *appUI) buildProjectTab() fyne.CanvasObject {
 		sectionCard("Presets", container.NewVBox(
 			widget.NewLabel("Style preset"),
 			ui.stylePreset,
-			widget.NewButton("Apply style preset", func() {
-				if applyStylePresetByName(&ui.project, ui.stylePreset.Selected, ui.presetLibrary.Style) {
-					ui.touchProject()
-					ui.applyProjectToWidgets()
-					ui.refreshDerivedUI()
-				}
-			}),
+			container.NewGridWithColumns(2,
+				widget.NewButton("Apply", func() {
+					if applyStylePresetByName(&ui.project, ui.stylePreset.Selected, ui.presetLibrary.Style) {
+						ui.touchProject()
+						ui.applyProjectToWidgets()
+						ui.refreshDerivedUI()
+					}
+				}),
+				widget.NewButton("Save", func() { ui.savePresetAction(presetKindStyle) }),
+				widget.NewButton("Duplicate", func() { ui.duplicatePresetAction(presetKindStyle) }),
+				widget.NewButton("Delete", func() { ui.deletePresetAction(presetKindStyle) }),
+			),
 			widget.NewLabel("Animation preset"),
 			ui.animPreset,
-			widget.NewButton("Apply animation preset", func() {
-				if applyAnimationPresetByName(&ui.project, ui.animPreset.Selected, ui.presetLibrary.Animation) {
-					ui.touchProject()
-					ui.applyProjectToWidgets()
-					ui.refreshDerivedUI()
-				}
-			}),
+			container.NewGridWithColumns(2,
+				widget.NewButton("Apply", func() {
+					if applyAnimationPresetByName(&ui.project, ui.animPreset.Selected, ui.presetLibrary.Animation) {
+						ui.touchProject()
+						ui.applyProjectToWidgets()
+						ui.refreshDerivedUI()
+					}
+				}),
+				widget.NewButton("Save", func() { ui.savePresetAction(presetKindAnimation) }),
+				widget.NewButton("Duplicate", func() { ui.duplicatePresetAction(presetKindAnimation) }),
+				widget.NewButton("Delete", func() { ui.deletePresetAction(presetKindAnimation) }),
+			),
 			widget.NewLabel("Export preset"),
 			ui.exportPreset,
-			widget.NewButton("Apply export preset", func() {
-				if applyExportPresetByName(&ui.project, ui.exportPreset.Selected, ui.presetLibrary.Export) {
-					ui.touchProject()
-					ui.applyProjectToWidgets()
-					ui.refreshDerivedUI()
-				}
-			}),
+			container.NewGridWithColumns(2,
+				widget.NewButton("Apply", func() {
+					if applyExportPresetByName(&ui.project, ui.exportPreset.Selected, ui.presetLibrary.Export) {
+						ui.touchProject()
+						ui.applyProjectToWidgets()
+						ui.refreshDerivedUI()
+					}
+				}),
+				widget.NewButton("Save", func() { ui.savePresetAction(presetKindExport) }),
+				widget.NewButton("Duplicate", func() { ui.duplicatePresetAction(presetKindExport) }),
+				widget.NewButton("Delete", func() { ui.deletePresetAction(presetKindExport) }),
+			),
 		)),
 	))
 
 	split := container.NewHSplit(left, right)
 	split.Offset = 0.45
 	return split
+}
+
+func (ui *appUI) savePresetAction(kind presetKind) {
+	selected := ui.presetSelectWidget(kind).Selected
+	ui.promptPresetName("Save preset", "Save", selected, func(name string) {
+		updated := ui.presetLibrary
+		items := upsertPreset(ui.presetItems(kind), capturePresetFromProject(kind, name, ui.project))
+		ui.setPresetItems(&updated, kind, items)
+		if err := savePresetLibrary(updated); err != nil {
+			dialog.ShowError(err, ui.window)
+			return
+		}
+		ui.presetLibrary = updated
+		ui.refreshPresetSelectors()
+		ui.presetSelectWidget(kind).SetSelected(name)
+		ui.setStatus(fmt.Sprintf("Saved %s preset: %s", ui.presetKindLabel(kind), name))
+	})
+}
+
+func (ui *appUI) duplicatePresetAction(kind presetKind) {
+	selectWidget := ui.presetSelectWidget(kind)
+	selected := strings.TrimSpace(selectWidget.Selected)
+	if selected == "" {
+		ui.setStatus("Select a preset to duplicate.")
+		return
+	}
+
+	source, ok := findPresetByName(selected, ui.presetItems(kind))
+	if !ok {
+		ui.setStatus("Selected preset was not found.")
+		return
+	}
+
+	initialName := uniquePresetName(selected+" Copy", ui.presetItems(kind))
+	ui.promptPresetName("Duplicate preset", "Duplicate", initialName, func(name string) {
+		updated := ui.presetLibrary
+		source.Name = name
+		items := upsertPreset(ui.presetItems(kind), source)
+		ui.setPresetItems(&updated, kind, items)
+		if err := savePresetLibrary(updated); err != nil {
+			dialog.ShowError(err, ui.window)
+			return
+		}
+		ui.presetLibrary = updated
+		ui.refreshPresetSelectors()
+		ui.presetSelectWidget(kind).SetSelected(name)
+		ui.setStatus(fmt.Sprintf("Duplicated %s preset: %s", ui.presetKindLabel(kind), name))
+	})
+}
+
+func (ui *appUI) deletePresetAction(kind presetKind) {
+	selectWidget := ui.presetSelectWidget(kind)
+	selected := strings.TrimSpace(selectWidget.Selected)
+	if selected == "" {
+		ui.setStatus("Select a preset to delete.")
+		return
+	}
+
+	dialog.NewConfirm(
+		"Delete preset",
+		fmt.Sprintf("Delete %s preset \"%s\"?", ui.presetKindLabel(kind), selected),
+		func(confirm bool) {
+			if !confirm {
+				return
+			}
+			items, removed := removePresetByName(ui.presetItems(kind), selected)
+			if !removed {
+				ui.setStatus("Selected preset was not found.")
+				return
+			}
+
+			updated := ui.presetLibrary
+			ui.setPresetItems(&updated, kind, items)
+			if err := savePresetLibrary(updated); err != nil {
+				dialog.ShowError(err, ui.window)
+				return
+			}
+			ui.presetLibrary = updated
+			ui.refreshPresetSelectors()
+			ui.setStatus(fmt.Sprintf("Deleted %s preset: %s", ui.presetKindLabel(kind), selected))
+		},
+		ui.window,
+	).Show()
+}
+
+func (ui *appUI) promptPresetName(title, confirmLabel, initial string, onConfirm func(string)) {
+	entry := widget.NewEntry()
+	entry.SetText(initial)
+	dialog.ShowForm(
+		title,
+		confirmLabel,
+		"Cancel",
+		[]*widget.FormItem{
+			widget.NewFormItem("Name", entry),
+		},
+		func(confirm bool) {
+			if !confirm {
+				return
+			}
+			name := strings.TrimSpace(entry.Text)
+			if name == "" {
+				ui.setStatus("Preset name cannot be empty.")
+				return
+			}
+			onConfirm(name)
+		},
+		ui.window,
+	)
+}
+
+func (ui *appUI) refreshPresetSelectors() {
+	ui.refreshPresetSelect(ui.stylePreset, ui.presetLibrary.Style)
+	ui.refreshPresetSelect(ui.animPreset, ui.presetLibrary.Animation)
+	ui.refreshPresetSelect(ui.exportPreset, ui.presetLibrary.Export)
+}
+
+func (ui *appUI) refreshPresetSelect(selectWidget *widget.Select, items []projectPreset) {
+	if selectWidget == nil {
+		return
+	}
+	current := strings.TrimSpace(selectWidget.Selected)
+	selectWidget.SetOptions(presetNames(items))
+	if current != "" && presetNameExists(current, items) {
+		selectWidget.SetSelected(current)
+		return
+	}
+	if name := firstPresetName(items); name != "" {
+		selectWidget.SetSelected(name)
+		return
+	}
+	selectWidget.ClearSelected()
+}
+
+func (ui *appUI) presetItems(kind presetKind) []projectPreset {
+	switch kind {
+	case presetKindStyle:
+		return ui.presetLibrary.Style
+	case presetKindAnimation:
+		return ui.presetLibrary.Animation
+	case presetKindExport:
+		return ui.presetLibrary.Export
+	default:
+		return nil
+	}
+}
+
+func (ui *appUI) setPresetItems(library *presetLibrary, kind presetKind, items []projectPreset) {
+	switch kind {
+	case presetKindStyle:
+		library.Style = items
+	case presetKindAnimation:
+		library.Animation = items
+	case presetKindExport:
+		library.Export = items
+	}
+}
+
+func (ui *appUI) presetSelectWidget(kind presetKind) *widget.Select {
+	switch kind {
+	case presetKindStyle:
+		return ui.stylePreset
+	case presetKindAnimation:
+		return ui.animPreset
+	case presetKindExport:
+		return ui.exportPreset
+	default:
+		return nil
+	}
+}
+
+func (ui *appUI) presetKindLabel(kind presetKind) string {
+	switch kind {
+	case presetKindStyle:
+		return "style"
+	case presetKindAnimation:
+		return "animation"
+	case presetKindExport:
+		return "export"
+	default:
+		return "preset"
+	}
 }
 
 func sectionCard(title string, content fyne.CanvasObject) fyne.CanvasObject {
