@@ -83,13 +83,14 @@ type AnimationSettings struct {
 }
 
 type BackgroundSettings struct {
-	Mode       string `json:"mode"`
-	SolidColor string `json:"solid_color"`
-	GradientA  string `json:"gradient_a"`
-	GradientB  string `json:"gradient_b"`
-	ImagePath  string `json:"image_path"`
-	VideoPath  string `json:"video_path"`
-	FitMode    string `json:"fit_mode"`
+	Mode         string  `json:"mode"`
+	SolidColor   string  `json:"solid_color"`
+	GradientA    string  `json:"gradient_a"`
+	GradientB    string  `json:"gradient_b"`
+	ImagePath    string  `json:"image_path"`
+	ImageOpacity float64 `json:"image_opacity"`
+	VideoPath    string  `json:"video_path"`
+	FitMode      string  `json:"fit_mode"`
 }
 
 type ExportSettings struct {
@@ -157,11 +158,12 @@ func defaultProject() Project {
 			Loop:                    true,
 		},
 		Background: BackgroundSettings{
-			Mode:       backgroundModeTransparent,
-			SolidColor: "#050608",
-			GradientA:  "#0B0D10",
-			GradientB:  "#18262B",
-			FitMode:    "Fit",
+			Mode:         backgroundModeTransparent,
+			SolidColor:   "#050608",
+			GradientA:    "#0B0D10",
+			GradientB:    "#18262B",
+			ImageOpacity: 100,
+			FitMode:      "Fit",
 		},
 		Export: ExportSettings{
 			Width:           1920,
@@ -225,6 +227,9 @@ func normalizeProject(project Project) Project {
 	}
 	if project.Background.GradientB == "" {
 		project.Background.GradientB = def.Background.GradientB
+	}
+	if project.Background.ImageOpacity == 0 {
+		project.Background.ImageOpacity = def.Background.ImageOpacity
 	}
 	if project.Background.FitMode == "" {
 		project.Background.FitMode = def.Background.FitMode

@@ -71,6 +71,7 @@ type appUI struct {
 	gradientAButton      *widget.Button
 	gradientBButton      *widget.Button
 	imagePathEntry       *widget.Entry
+	bgImageOpacitySlider *widget.Slider
 	videoPathEntry       *widget.Entry
 	bgFitSelect          *widget.Select
 	widthEntry           *widget.Entry
@@ -520,6 +521,9 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 		ui.touchProject()
 		ui.refreshDerivedUI()
 	}
+	ui.bgImageOpacitySlider = newSlider(1, 100, ui.bindFloat(func(value float64) {
+		ui.project.Background.ImageOpacity = value
+	}))
 	ui.videoPathEntry = widget.NewEntry()
 	ui.videoPathEntry.OnChanged = func(value string) {
 		if ui.suspend {
@@ -619,6 +623,8 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 			widget.NewLabel("Image path"),
 			ui.imagePathEntry,
 			widget.NewButtonWithIcon("Вибрати зображення", theme.FolderOpenIcon(), ui.pickBackgroundImage),
+			widget.NewLabel("Image opacity"),
+			ui.bgImageOpacitySlider,
 			widget.NewLabel("Video path"),
 			ui.videoPathEntry,
 			widget.NewButtonWithIcon("Вибрати відео", theme.MediaVideoIcon(), ui.pickBackgroundVideo),
@@ -835,6 +841,7 @@ func (ui *appUI) applyProjectToWidgets() {
 
 	ui.backgroundModeSelect.SetSelected(ui.project.Background.Mode)
 	ui.imagePathEntry.SetText(ui.project.Background.ImagePath)
+	ui.bgImageOpacitySlider.SetValue(ui.project.Background.ImageOpacity)
 	ui.videoPathEntry.SetText(ui.project.Background.VideoPath)
 	ui.bgFitSelect.SetSelected(ui.project.Background.FitMode)
 	ui.widthEntry.SetText(strconv.Itoa(ui.project.Export.Width))

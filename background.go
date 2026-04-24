@@ -43,7 +43,7 @@ func loadBackgroundImage(path string) (image.Image, error) {
 	return img, nil
 }
 
-func drawImageBackground(dst *image.NRGBA, src image.Image, fitMode string) {
+func drawImageBackground(dst *image.NRGBA, src image.Image, fitMode string, opacity float64) {
 	draw.Draw(dst, dst.Bounds(), image.NewUniform(color.NRGBA{R: 7, G: 8, B: 10, A: 255}), image.Point{}, draw.Src)
 
 	srcBounds := src.Bounds()
@@ -86,7 +86,21 @@ func drawImageBackground(dst *image.NRGBA, src image.Image, fitMode string) {
 
 	scaled := image.NewNRGBA(drawRect)
 	xdraw.CatmullRom.Scale(scaled, scaled.Bounds(), src, srcBounds, draw.Over, nil)
+	applyBackgroundOpacity(scaled, opacity)
 	draw.Draw(dst, drawRect, scaled, scaled.Bounds().Min, draw.Over)
+}
+
+func applyBackgroundOpacity(img *image.NRGBA, opacity float64) {
+	if opacity >= 100 {
+		return
+	}
+	if opacity < 0 {
+		opacity = 0
+	}
+	alphaScale := opacity / 100.0
+	for i := 3; i < len(img.Pix); i += 4 {
+		img.Pix[i] = uint8(float64(img.Pix[i]) * alphaScale)
+	}
 }
 
 func minFloat(a, b float64) float64 {

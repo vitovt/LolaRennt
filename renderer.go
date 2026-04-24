@@ -75,7 +75,7 @@ func paintBackground(img *image.NRGBA, project Project, timeSec float64) {
 		if project.Background.ImagePath != "" {
 			bg, err := loadBackgroundImage(project.Background.ImagePath)
 			if err == nil {
-				drawImageBackground(img, bg, project.Background.FitMode)
+				drawImageBackground(img, bg, project.Background.FitMode, project.Background.ImageOpacity)
 				return
 			}
 		}
@@ -85,7 +85,7 @@ func paintBackground(img *image.NRGBA, project Project, timeSec float64) {
 		if project.Background.VideoPath != "" {
 			bg, err := loadVideoBackgroundFrame(project.Background.VideoPath, timeSec)
 			if err == nil {
-				drawImageBackground(img, bg, project.Background.FitMode)
+				drawImageBackground(img, bg, project.Background.FitMode, 100)
 				return
 			}
 		}
