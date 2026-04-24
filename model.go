@@ -73,19 +73,21 @@ type LayoutSettings struct {
 }
 
 type AnimationSettings struct {
-	Type                    string  `json:"type"`
-	RandomSource            string  `json:"random_source"`
-	AllowInvalidRandomChars bool    `json:"allow_invalid_random_chars"`
-	AllowEmptyCell          bool    `json:"allow_empty_cell"`
-	TotalDuration           float64 `json:"total_duration"`
-	IntroDelay              float64 `json:"intro_delay"`
-	OutroHold               float64 `json:"outro_hold"`
-	PerCharacterDelay       float64 `json:"per_character_delay"`
-	RandomSwitchRate        float64 `json:"random_switch_rate"`
-	Seed                    string  `json:"seed"`
-	LockOrder               string  `json:"lock_order"`
-	LockMode                string  `json:"lock_mode"`
-	Loop                    bool    `json:"loop"`
+	Type                     string  `json:"type"`
+	RandomSource             string  `json:"random_source"`
+	AllowInvalidRandomChars  bool    `json:"allow_invalid_random_chars"`
+	AllowEmptyCell           bool    `json:"allow_empty_cell"`
+	TotalDuration            float64 `json:"total_duration"`
+	IntroDelay               float64 `json:"intro_delay"`
+	OutroHold                float64 `json:"outro_hold"`
+	PerCharacterDelay        float64 `json:"per_character_delay"`
+	RandomSwitchRate         float64 `json:"random_switch_rate"`
+	Seed                     string  `json:"seed"`
+	LockOrder                string  `json:"lock_order"`
+	LockMode                 string  `json:"lock_mode"`
+	SimultaneousFinalLock    bool    `json:"simultaneous_final_lock"`
+	ImmediatePunctuationLock bool    `json:"immediate_punctuation_lock"`
+	Loop                     bool    `json:"loop"`
 }
 
 type BackgroundSettings struct {

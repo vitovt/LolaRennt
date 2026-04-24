@@ -27,7 +27,7 @@ func buildAnimatedFrame(project Project, stats textStats, frame int) animatedFra
 
 func animateText(project Project, finalText string, frame, fps int) string {
 	runes := []rune(finalText)
-	animatable := animatablePositions(runes)
+	animatable := animatablePositions(runes, project.Animation.ImmediatePunctuationLock)
 	if len(animatable) == 0 {
 		return finalText
 	}
@@ -92,6 +92,9 @@ func animateRuneForMode(project Project, pool []rune, seedBase uint64, frame, sw
 }
 
 func lockOrScrambleRune(project Project, pool []rune, seedBase uint64, frame, switchFrame, index int, target rune, start, lockAt int) rune {
+	if project.Animation.SimultaneousFinalLock {
+		return scrambleRune(pool, seedBase, switchFrame, index, target, project.Animation.AllowEmptyCell)
+	}
 	progress := float64(frame-start) / float64(maxInt(lockAt-start, 1))
 	switch project.Animation.LockMode {
 	case "Hard lock":
@@ -166,10 +169,13 @@ func hashSeed(seed string) uint64 {
 	return h.Sum64()
 }
 
-func animatablePositions(runes []rune) []int {
+func animatablePositions(runes []rune, immediatePunctuationLock bool) []int {
 	positions := make([]int, 0, len(runes))
 	for i, r := range runes {
 		if r == '\n' {
+			continue
+		}
+		if immediatePunctuationLock && shouldLockImmediately(r) {
 			continue
 		}
 		positions = append(positions, i)
@@ -236,6 +242,13 @@ func orderIndices(positions []int, runes []rune, order, seed string) []int {
 
 func isLetterOrDigit(r rune) bool {
 	return (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || (r >= 'А' && r <= 'я') || r == 'Ё' || r == 'Є' || r == 'Ї' || r == 'І' || r == 'Ґ' || r == 'Ä' || r == 'Ö' || r == 'Ü' || r == 'ẞ'
+}
+
+func shouldLockImmediately(r rune) bool {
+	if r == '\n' || r == ' ' || r == '\t' {
+		return false
+	}
+	return !isLetterOrDigit(r)
 }
 
 func minInt(a, b int) int {

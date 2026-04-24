@@ -30,5 +30,5 @@ Current focus:
 - [x] Add `flicker` control
 - [x] Add `noise overlay`
 - [x] Add `scanline` toggle
-- [ ] Add `simultaneous final lock`
-- [ ] Add `immediate punctuation lock`
+- [x] Add `simultaneous final lock`
+- [x] Add `immediate punctuation lock`

@@ -56,24 +56,26 @@ type appUI struct {
 	replacementGuide  *widget.Label
 	styleSummary      *widget.Label
 
-	animationTypeSelect *widget.Select
-	randomSourceSelect  *widget.Select
-	allowInvalidCheck   *widget.Check
-	allowEmptyCheck     *widget.Check
-	totalDurationSlider *widget.Slider
-	introDelaySlider    *widget.Slider
-	outroHoldSlider     *widget.Slider
-	perCharDelaySlider  *widget.Slider
-	switchRateSlider    *widget.Slider
-	seedEntry           *widget.Entry
-	lockOrderSelect     *widget.Select
-	lockModeSelect      *widget.Select
-	loopCheck           *widget.Check
-	timelineSlider      *widget.Slider
-	playbackInfo        *widget.Label
-	animationSummary    *widget.Label
-	playbackStop        chan struct{}
-	playbackRunning     bool
+	animationTypeSelect   *widget.Select
+	randomSourceSelect    *widget.Select
+	allowInvalidCheck     *widget.Check
+	allowEmptyCheck       *widget.Check
+	totalDurationSlider   *widget.Slider
+	introDelaySlider      *widget.Slider
+	outroHoldSlider       *widget.Slider
+	perCharDelaySlider    *widget.Slider
+	switchRateSlider      *widget.Slider
+	seedEntry             *widget.Entry
+	lockOrderSelect       *widget.Select
+	lockModeSelect        *widget.Select
+	simultaneousLockCheck *widget.Check
+	punctuationLockCheck  *widget.Check
+	loopCheck             *widget.Check
+	timelineSlider        *widget.Slider
+	playbackInfo          *widget.Label
+	animationSummary      *widget.Label
+	playbackStop          chan struct{}
+	playbackRunning       bool
 
 	backgroundModeSelect *widget.Select
 	bgColorButton        *widget.Button
@@ -444,6 +446,22 @@ func (ui *appUI) buildAnimationTab() fyne.CanvasObject {
 		ui.touchProject()
 		ui.refreshDerivedUI()
 	})
+	ui.simultaneousLockCheck = widget.NewCheck("Simultaneous final lock", func(value bool) {
+		if ui.suspend {
+			return
+		}
+		ui.project.Animation.SimultaneousFinalLock = value
+		ui.touchProject()
+		ui.refreshDerivedUI()
+	})
+	ui.punctuationLockCheck = widget.NewCheck("Immediate punctuation lock", func(value bool) {
+		if ui.suspend {
+			return
+		}
+		ui.project.Animation.ImmediatePunctuationLock = value
+		ui.touchProject()
+		ui.refreshDerivedUI()
+	})
 	ui.loopCheck = widget.NewCheck("Loop", func(value bool) {
 		if ui.suspend {
 			return
@@ -494,6 +512,8 @@ func (ui *appUI) buildAnimationTab() fyne.CanvasObject {
 			ui.lockOrderSelect,
 			widget.NewLabel("Lock mode"),
 			ui.lockModeSelect,
+			ui.simultaneousLockCheck,
+			ui.punctuationLockCheck,
 			ui.loopCheck,
 		)),
 	))
@@ -1135,6 +1155,8 @@ func (ui *appUI) applyProjectToWidgets() {
 	ui.seedEntry.SetText(ui.project.Animation.Seed)
 	ui.lockOrderSelect.SetSelected(ui.project.Animation.LockOrder)
 	ui.lockModeSelect.SetSelected(ui.project.Animation.LockMode)
+	ui.simultaneousLockCheck.SetChecked(ui.project.Animation.SimultaneousFinalLock)
+	ui.punctuationLockCheck.SetChecked(ui.project.Animation.ImmediatePunctuationLock)
 	ui.loopCheck.SetChecked(ui.project.Animation.Loop)
 
 	ui.backgroundModeSelect.SetSelected(ui.project.Background.Mode)
@@ -1190,12 +1212,14 @@ func (ui *appUI) refreshDerivedUI() {
 
 	ui.playbackInfo.SetText(ui.playbackSummary())
 	ui.animationSummary.SetText(fmt.Sprintf(
-		"Type: %s\nRandom source: %s\nSeed: %s\nLock: %s / %s",
+		"Type: %s\nRandom source: %s\nSeed: %s\nLock: %s / %s\nSimultaneous final: %t\nPunctuation lock: %t",
 		ui.project.Animation.Type,
 		ui.project.Animation.RandomSource,
 		ui.project.Animation.Seed,
 		ui.project.Animation.LockOrder,
 		ui.project.Animation.LockMode,
+		ui.project.Animation.SimultaneousFinalLock,
+		ui.project.Animation.ImmediatePunctuationLock,
 	))
 
 	ui.exportSummary.SetText(fmt.Sprintf(
