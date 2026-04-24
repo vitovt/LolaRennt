@@ -6,7 +6,9 @@ import (
 	"image/color"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -607,9 +609,7 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 			ui.outputFolderEntry,
 			container.NewGridWithColumns(2,
 				widget.NewButtonWithIcon("Вибрати теку", theme.FolderOpenIcon(), ui.pickOutputFolder),
-				widget.NewButton("Open", func() {
-					ui.setStatus("Output folder open action is reserved for the next slice.")
-				}),
+				widget.NewButton("Open", ui.openOutputFolderAction),
 			),
 			widget.NewLabel("File prefix"),
 			ui.filePrefixEntry,
@@ -1400,6 +1400,47 @@ func (ui *appUI) pickOutputFolder() {
 		ui.applyProjectToWidgets()
 		ui.refreshDerivedUI()
 	}, ui.window)
+}
+
+func (ui *appUI) openOutputFolderAction() {
+	outputFolder := strings.TrimSpace(ui.project.Export.OutputFolder)
+	if outputFolder == "" {
+		outputFolder = "."
+	}
+
+	absPath, err := filepath.Abs(outputFolder)
+	if err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
+	if !info.IsDir() {
+		dialog.ShowError(fmt.Errorf("output path is not a directory: %s", absPath), ui.window)
+		return
+	}
+
+	if err := openPathInFileManager(absPath); err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
+	ui.setStatus("Opened output folder.")
+}
+
+func openPathInFileManager(path string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", path)
+	case "windows":
+		cmd = exec.Command("explorer", filepath.Clean(path))
+	default:
+		cmd = exec.Command("xdg-open", path)
+	}
+	return cmd.Start()
 }
 
 func (ui *appUI) pickBackgroundImage() {

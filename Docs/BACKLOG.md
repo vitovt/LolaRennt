@@ -19,7 +19,7 @@ Current focus:
 ## P1 Important
 
 - [ ] Add export `ETA`
-- [ ] Implement `Open output folder`
+- [x] Implement `Open output folder`
 - [ ] Add `preview region / full canvas` control in export
 - [ ] Support manual `ffmpeg` / `ffprobe` path override
 - [ ] Add preset management workflow: save, duplicate, delete
