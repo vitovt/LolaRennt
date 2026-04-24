@@ -23,7 +23,7 @@ Current focus:
 - [x] Add `preview region / full canvas` control in export
 - [x] Support manual `ffmpeg` / `ffprobe` path override
 - [ ] Add preset management workflow: save, duplicate, delete
-- [ ] Persist presets as JSON instead of shipping only hardcoded presets
+- [x] Persist presets as JSON instead of shipping only hardcoded presets
 
 ## P2 Nice To Have Within Spec
 

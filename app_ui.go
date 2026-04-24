@@ -22,11 +22,12 @@ import (
 )
 
 type appUI struct {
-	app         fyne.App
-	window      fyne.Window
-	project     Project
-	projectPath string
-	suspend     bool
+	app           fyne.App
+	window        fyne.Window
+	project       Project
+	projectPath   string
+	suspend       bool
+	presetLibrary presetLibrary
 
 	status *widget.Label
 
@@ -117,14 +118,19 @@ type appUI struct {
 }
 
 func newAppUI(app fyne.App) *appUI {
+	presets, presetErr := loadPresetLibrary()
 	ui := &appUI{
-		app:     app,
-		window:  app.NewWindow("Lola Rennt Animator"),
-		project: normalizeProject(defaultProject()),
+		app:           app,
+		window:        app.NewWindow("Lola Rennt Animator"),
+		project:       normalizeProject(defaultProject()),
+		presetLibrary: presets,
 	}
 	ui.ensureSeed()
 	ui.window.Resize(fyne.NewSize(1520, 980))
 	ui.status = widget.NewLabel("")
+	if presetErr != nil {
+		ui.status.SetText("Preset library fallback loaded from defaults.")
+	}
 	ui.window.SetContent(ui.buildContent())
 	ui.applyProjectToWidgets()
 	ui.refreshDerivedUI()
@@ -751,12 +757,18 @@ func (ui *appUI) buildProjectTab() fyne.CanvasObject {
 	ui.projectPathLabel = widget.NewLabel("")
 	ui.metadataLabel = widget.NewLabel("")
 	ui.recentProjects = container.NewVBox(widget.NewLabel("No recent projects yet"))
-	ui.stylePreset = widget.NewSelect(presetNames(stylePresets), nil)
-	ui.animPreset = widget.NewSelect(presetNames(animationPresets), nil)
-	ui.exportPreset = widget.NewSelect(presetNames(exportPresets), nil)
-	ui.stylePreset.SetSelected(stylePresets[0].Name)
-	ui.animPreset.SetSelected(animationPresets[0].Name)
-	ui.exportPreset.SetSelected(exportPresets[0].Name)
+	ui.stylePreset = widget.NewSelect(presetNames(ui.presetLibrary.Style), nil)
+	ui.animPreset = widget.NewSelect(presetNames(ui.presetLibrary.Animation), nil)
+	ui.exportPreset = widget.NewSelect(presetNames(ui.presetLibrary.Export), nil)
+	if name := firstPresetName(ui.presetLibrary.Style); name != "" {
+		ui.stylePreset.SetSelected(name)
+	}
+	if name := firstPresetName(ui.presetLibrary.Animation); name != "" {
+		ui.animPreset.SetSelected(name)
+	}
+	if name := firstPresetName(ui.presetLibrary.Export); name != "" {
+		ui.exportPreset.SetSelected(name)
+	}
 
 	left := paneScroll(container.NewVBox(
 		sectionCard("Project", container.NewGridWithColumns(2,
@@ -783,7 +795,7 @@ func (ui *appUI) buildProjectTab() fyne.CanvasObject {
 			widget.NewLabel("Style preset"),
 			ui.stylePreset,
 			widget.NewButton("Apply style preset", func() {
-				if applyPresetByName(&ui.project, ui.stylePreset.Selected, stylePresets) {
+				if applyStylePresetByName(&ui.project, ui.stylePreset.Selected, ui.presetLibrary.Style) {
 					ui.touchProject()
 					ui.applyProjectToWidgets()
 					ui.refreshDerivedUI()
@@ -792,7 +804,7 @@ func (ui *appUI) buildProjectTab() fyne.CanvasObject {
 			widget.NewLabel("Animation preset"),
 			ui.animPreset,
 			widget.NewButton("Apply animation preset", func() {
-				if applyPresetByName(&ui.project, ui.animPreset.Selected, animationPresets) {
+				if applyAnimationPresetByName(&ui.project, ui.animPreset.Selected, ui.presetLibrary.Animation) {
 					ui.touchProject()
 					ui.applyProjectToWidgets()
 					ui.refreshDerivedUI()
@@ -801,7 +813,7 @@ func (ui *appUI) buildProjectTab() fyne.CanvasObject {
 			widget.NewLabel("Export preset"),
 			ui.exportPreset,
 			widget.NewButton("Apply export preset", func() {
-				if applyPresetByName(&ui.project, ui.exportPreset.Selected, exportPresets) {
+				if applyExportPresetByName(&ui.project, ui.exportPreset.Selected, ui.presetLibrary.Export) {
 					ui.touchProject()
 					ui.applyProjectToWidgets()
 					ui.refreshDerivedUI()
