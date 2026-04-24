@@ -12,11 +12,11 @@ Current focus:
 - [x] Add missing layout control for `padding`
 - [ ] Add text validation UX: supported charset viewer, unsupported character highlighting, and replacement guidance
 - [x] Add background image `opacity`
+- [x] Make `supersampling` affect export output instead of only being stored in project state
 
 ## P0 Critical
 
 - [ ] Add text validation UX: supported charset viewer, unsupported character highlighting, and replacement guidance
-- [ ] Make `supersampling` affect export output instead of only being stored in project state
 
 ## P1 Important
 

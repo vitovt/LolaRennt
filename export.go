@@ -3,9 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
+	"image"
+	"image/draw"
 	"image/png"
 	"os"
 	"path/filepath"
+
+	xdraw "golang.org/x/image/draw"
 )
 
 type renderProgress struct {
@@ -73,7 +77,7 @@ func renderPNGSequence(project Project, cancel <-chan struct{}, progress func(re
 		default:
 		}
 
-		img, err := renderImage(project, stats, frame, project.Export.Width, project.Export.Height)
+		img, err := renderExportImage(project, stats, frame)
 		if err != nil {
 			return "", count, err
 		}
@@ -103,6 +107,26 @@ func renderPNGSequence(project Project, cancel <-chan struct{}, progress func(re
 	}
 
 	return outputFolder, count, nil
+}
+
+func renderExportImage(project Project, stats textStats, frame int) (image.Image, error) {
+	width := project.Export.Width
+	height := project.Export.Height
+	supersampling := project.Export.Supersampling
+	if supersampling <= 1 {
+		return renderImage(project, stats, frame, width, height)
+	}
+
+	renderWidth := maxInt(int(float64(width)*supersampling+0.5), width)
+	renderHeight := maxInt(int(float64(height)*supersampling+0.5), height)
+	highRes, err := renderImage(project, stats, frame, renderWidth, renderHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	downsampled := image.NewNRGBA(image.Rect(0, 0, width, height))
+	xdraw.CatmullRom.Scale(downsampled, downsampled.Bounds(), highRes, highRes.Bounds(), draw.Src, nil)
+	return downsampled, nil
 }
 
 func nextAvailablePrefix(outputFolder, prefix string, project Project) string {
