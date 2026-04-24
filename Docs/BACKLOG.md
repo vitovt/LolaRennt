@@ -10,13 +10,11 @@ Current focus:
 - [x] Make `Random switch rate` affect animation output instead of being UI-only
 - [x] Add preview controls: zoom, checkerboard, safe area toggle, and background preview modes
 - [x] Add missing layout control for `padding`
-- [ ] Add text validation UX: supported charset viewer, unsupported character highlighting, and replacement guidance
+- [x] Add text validation UX: supported charset viewer, unsupported character highlighting, and replacement guidance
 - [x] Add background image `opacity`
 - [x] Make `supersampling` affect export output instead of only being stored in project state
 
 ## P0 Critical
-
-- [ ] Add text validation UX: supported charset viewer, unsupported character highlighting, and replacement guidance
 
 ## P1 Important
 

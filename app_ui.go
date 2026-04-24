@@ -46,6 +46,7 @@ type appUI struct {
 	alignmentSelect   *widget.Select
 	statsLabel        *widget.Label
 	validationPreview *widget.Label
+	validationGrid    *widget.TextGrid
 	replacementGuide  *widget.Label
 	styleSummary      *widget.Label
 
@@ -251,10 +252,14 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 	ui.statsLabel = widget.NewLabel("")
 	ui.validationPreview = widget.NewLabel("")
 	ui.validationPreview.Wrapping = fyne.TextWrapWord
+	ui.validationGrid = widget.NewTextGrid()
+	ui.validationGrid.Scroll = fyne.ScrollBoth
 	ui.replacementGuide = widget.NewLabel("")
 	ui.replacementGuide.Wrapping = fyne.TextWrapWord
 	ui.styleSummary = widget.NewLabel("")
 	ui.staticPreview = newPreviewCard("Static preview", ui.window)
+	validationGridScroll := container.NewScroll(ui.validationGrid)
+	validationGridScroll.SetMinSize(fyne.NewSize(320, 140))
 
 	left := paneScroll(container.NewVBox(
 		sectionCard("Charset / Languages", container.NewVBox(
@@ -282,6 +287,8 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 			),
 			ui.statsLabel,
 			ui.validationPreview,
+			widget.NewLabel("Validation highlight (unsupported cells are marked after normalization)"),
+			validationGridScroll,
 			ui.replacementGuide,
 		)),
 		sectionCard("Колір", container.NewVBox(
@@ -881,6 +888,7 @@ func (ui *appUI) refreshDerivedUI() {
 
 	ui.statsLabel.SetText(fmt.Sprintf("Символів: %d • Рядків: %d • Unsupported: %s", stats.CharacterCount, stats.LineCount, formatUnsupportedRunes(stats.UnsupportedUnique)))
 	ui.validationPreview.SetText("Validation preview:\n" + buildValidationPreview(ui.project.Text.Content, ui.project.Charset.Languages, ui.project.Text.UppercaseOnly))
+	ui.refreshValidationGrid()
 	ui.replacementGuide.SetText(formatReplacementGuidance(stats.UnsupportedUnique, ui.project.Text.AutoReplaceUnsupported))
 	ui.styleSummary.SetText(fmt.Sprintf(
 		"Mode: %s\nLanguages: %s\nMain: %s\nGlow: %.0f%%\nInactive: %.0f%%\nAlignment: %s",
@@ -1112,6 +1120,37 @@ func (ui *appUI) showSupportedCharsetDialog() {
 		container.NewScroll(viewer),
 		ui.window,
 	).Show()
+}
+
+func (ui *appUI) refreshValidationGrid() {
+	if ui.validationGrid == nil {
+		return
+	}
+
+	normalized := normalizeValidationText(ui.project.Text.Content, ui.project.Text.UppercaseOnly)
+	ui.validationGrid.SetText(normalized)
+
+	unsupportedStyle := &widget.CustomTextGridStyle{
+		TextStyle: fyne.TextStyle{Bold: true},
+		FGColor:   color.NRGBA{R: 255, G: 245, B: 245, A: 255},
+		BGColor:   color.NRGBA{R: 158, G: 36, B: 36, A: 255},
+	}
+	supported := supportedRunes(ui.project.Charset.Languages)
+
+	row := 0
+	col := 0
+	for _, r := range normalized {
+		if r == '\n' {
+			row++
+			col = 0
+			continue
+		}
+		if !supported[r] {
+			ui.validationGrid.SetStyle(row, col, unsupportedStyle)
+		}
+		col++
+	}
+	ui.validationGrid.Refresh()
 }
 
 func (ui *appUI) touchProject() {

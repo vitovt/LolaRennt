@@ -33,6 +33,14 @@ type textStats struct {
 	DisplayText       string
 }
 
+func normalizeValidationText(text string, uppercaseOnly bool) string {
+	normalized := strings.ReplaceAll(text, "\r\n", "\n")
+	if uppercaseOnly {
+		normalized = strings.ToUpper(normalized)
+	}
+	return normalized
+}
+
 func sortedLanguages(languages []string) []string {
 	unique := make([]string, 0, len(languages))
 	seen := map[string]bool{}
@@ -60,10 +68,7 @@ func supportedRunes(languages []string) map[rune]bool {
 }
 
 func analyzeText(text string, languages []string, uppercaseOnly, autoReplace bool) textStats {
-	normalized := strings.ReplaceAll(text, "\r\n", "\n")
-	if uppercaseOnly {
-		normalized = strings.ToUpper(normalized)
-	}
+	normalized := normalizeValidationText(text, uppercaseOnly)
 
 	if normalized == "" {
 		return textStats{
@@ -119,10 +124,7 @@ func formatUnsupportedRunes(runes []rune) string {
 }
 
 func buildValidationPreview(text string, languages []string, uppercaseOnly bool) string {
-	normalized := strings.ReplaceAll(text, "\r\n", "\n")
-	if uppercaseOnly {
-		normalized = strings.ToUpper(normalized)
-	}
+	normalized := normalizeValidationText(text, uppercaseOnly)
 	if normalized == "" {
 		return "(empty)"
 	}
