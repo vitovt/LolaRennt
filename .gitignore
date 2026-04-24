@@ -1,4 +1,6 @@
 bin/
+build/
+dist/
 .entire/logs/
 .entire/metadata/
 .entire/tmp/
