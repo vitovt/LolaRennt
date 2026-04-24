@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "b1192c84603b",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "animation.go"
+  ],
+  "sessions": [
+    {
+      "metadata": "/b1/192c84603b/0/metadata.json",
+      "transcript": "/b1/192c84603b/0/full.jsonl",
+      "content_hash": "/b1/192c84603b/0/content_hash.txt",
+      "prompt": "/b1/192c84603b/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 35342158,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 34111616,
+    "output_tokens": 238196,
+    "api_call_count": 293
+  }
+}
