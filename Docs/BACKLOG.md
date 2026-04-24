@@ -18,7 +18,7 @@ Current focus:
 
 ## P1 Important
 
-- [ ] Add export `ETA`
+- [x] Add export `ETA`
 - [x] Implement `Open output folder`
 - [ ] Add `preview region / full canvas` control in export
 - [ ] Support manual `ffmpeg` / `ffprobe` path override

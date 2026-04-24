@@ -91,10 +91,12 @@ type appUI struct {
 	ffmpegCommand        *widget.Entry
 	exportSummary        *widget.Label
 	exportProgress       *widget.ProgressBar
+	exportETA            *widget.Label
 	exportLog            *widget.Entry
 	ffmpegStatus         *widget.Label
 	cancelRender         chan struct{}
 	exportRunning        bool
+	renderStartedAt      time.Time
 
 	projectNameEntry *widget.Entry
 	notesEntry       *widget.Entry
@@ -600,6 +602,7 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 	ui.exportLog.Disable()
 	ui.exportSummary = widget.NewLabel("")
 	ui.exportProgress = widget.NewProgressBar()
+	ui.exportETA = widget.NewLabel("ETA: --")
 	ui.ffmpegStatus = widget.NewLabel("")
 	ui.exportPreview = newPreviewCard("Export preview", ui.window)
 
@@ -656,6 +659,7 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 		sectionCard("Export summary", ui.exportSummary),
 		sectionCard("Render control", container.NewVBox(
 			ui.exportProgress,
+			ui.exportETA,
 			container.NewGridWithColumns(2,
 				widget.NewButtonWithIcon("Render PNG sequence", theme.DocumentIcon(), ui.renderPNGSequenceAction),
 				widget.NewButtonWithIcon("Copy ffmpeg command", theme.ContentCopyIcon(), ui.copyFFmpegCommand),
@@ -1340,7 +1344,9 @@ func (ui *appUI) renderPNGSequenceAction() {
 func (ui *appUI) startRender(project Project) {
 	ui.exportRunning = true
 	ui.cancelRender = make(chan struct{})
+	ui.renderStartedAt = time.Now()
 	ui.exportProgress.SetValue(0)
+	ui.exportETA.SetText("ETA: calculating...")
 	ui.exportLog.SetText("")
 	ui.setStatus("PNG render started.")
 	if project.Export.FilePrefix != ui.project.Export.FilePrefix {
@@ -1353,6 +1359,7 @@ func (ui *appUI) startRender(project Project) {
 				if step.TotalFrames > 0 {
 					ui.exportProgress.SetValue(float64(step.CurrentFrame) / float64(step.TotalFrames))
 				}
+				ui.updateRenderETA(step.CurrentFrame, step.TotalFrames)
 				ui.appendExportLog(fmt.Sprintf("[%d/%d] %s", step.CurrentFrame, step.TotalFrames, filepathBase(step.Filename)))
 			})
 		})
@@ -1362,15 +1369,18 @@ func (ui *appUI) startRender(project Project) {
 			ui.cancelRender = nil
 			if err != nil {
 				if err == errRenderCancelled {
+					ui.exportETA.SetText("ETA: cancelled")
 					ui.appendExportLog("Render cancelled by user.")
 					ui.setStatus("Render cancelled.")
 					return
 				}
+				ui.exportETA.SetText("ETA: failed")
 				ui.appendExportLog("Render failed: " + err.Error())
 				dialog.ShowError(err, ui.window)
 				return
 			}
 			ui.exportProgress.SetValue(1)
+			ui.exportETA.SetText("ETA: complete")
 			ui.appendExportLog(fmt.Sprintf("Render complete: %d frames in %s", count, outputFolder))
 			ui.setStatus(fmt.Sprintf("Rendered %d PNG frames to %s", count, outputFolder))
 		})
@@ -1384,6 +1394,45 @@ func (ui *appUI) cancelRenderAction() {
 	}
 	close(ui.cancelRender)
 	ui.cancelRender = nil
+}
+
+func (ui *appUI) updateRenderETA(currentFrame, totalFrames int) {
+	if ui.exportETA == nil {
+		return
+	}
+	if currentFrame <= 0 || totalFrames <= 0 || ui.renderStartedAt.IsZero() {
+		ui.exportETA.SetText("ETA: calculating...")
+		return
+	}
+
+	elapsed := time.Since(ui.renderStartedAt)
+	if currentFrame >= totalFrames {
+		ui.exportETA.SetText("ETA: finishing...")
+		return
+	}
+
+	avgPerFrame := elapsed / time.Duration(currentFrame)
+	remainingFrames := totalFrames - currentFrame
+	remaining := avgPerFrame * time.Duration(remainingFrames)
+	ui.exportETA.SetText(fmt.Sprintf("ETA: %s • Elapsed: %s", formatShortDuration(remaining), formatShortDuration(elapsed)))
+}
+
+func formatShortDuration(d time.Duration) string {
+	if d < time.Second {
+		return "<1s"
+	}
+	totalSeconds := int(d.Round(time.Second).Seconds())
+	hours := totalSeconds / 3600
+	minutes := (totalSeconds % 3600) / 60
+	seconds := totalSeconds % 60
+
+	if hours > 0 {
+		return fmt.Sprintf("%dh %02dm %02ds", hours, minutes, seconds)
+	}
+	if minutes > 0 {
+		return fmt.Sprintf("%dm %02ds", minutes, seconds)
+	}
+	return fmt.Sprintf("%ds", seconds)
 }
 
 func (ui *appUI) pickOutputFolder() {
