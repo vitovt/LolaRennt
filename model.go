@@ -21,6 +21,9 @@ const (
 	alignmentLeft   = "Left"
 	alignmentCenter = "Center"
 	alignmentRight  = "Right"
+
+	exportScopeFullCanvas    = "Full canvas"
+	exportScopePreviewRegion = "Preview region"
 )
 
 type Project struct {
@@ -94,17 +97,26 @@ type BackgroundSettings struct {
 }
 
 type ExportSettings struct {
-	Width           int     `json:"width"`
-	Height          int     `json:"height"`
-	FPS             int     `json:"fps"`
-	StartFrame      int     `json:"start_frame"`
-	EndFrame        int     `json:"end_frame"`
-	OutputFolder    string  `json:"output_folder"`
-	FilePrefix      string  `json:"file_prefix"`
-	OverwritePolicy string  `json:"overwrite_policy"`
-	Supersampling   float64 `json:"supersampling"`
-	FFmpegPath      string  `json:"ffmpeg_path"`
-	FFprobePath     string  `json:"ffprobe_path"`
+	Width           int          `json:"width"`
+	Height          int          `json:"height"`
+	FPS             int          `json:"fps"`
+	StartFrame      int          `json:"start_frame"`
+	EndFrame        int          `json:"end_frame"`
+	FrameScope      string       `json:"frame_scope"`
+	OutputFolder    string       `json:"output_folder"`
+	FilePrefix      string       `json:"file_prefix"`
+	OverwritePolicy string       `json:"overwrite_policy"`
+	Supersampling   float64      `json:"supersampling"`
+	FFmpegPath      string       `json:"ffmpeg_path"`
+	FFprobePath     string       `json:"ffprobe_path"`
+	PreviewRegion   ExportRegion `json:"-"`
+}
+
+type ExportRegion struct {
+	X      float64
+	Y      float64
+	Width  float64
+	Height float64
 }
 
 type MetadataSettings struct {
@@ -173,10 +185,12 @@ func defaultProject() Project {
 			FPS:             30,
 			StartFrame:      0,
 			EndFrame:        119,
+			FrameScope:      exportScopeFullCanvas,
 			OutputFolder:    ".",
 			FilePrefix:      "lola_frame",
 			OverwritePolicy: "Ask",
 			Supersampling:   1,
+			PreviewRegion:   fullExportRegion(),
 		},
 		Metadata: MetadataSettings{
 			ProjectName: "Lola Rennt Intro",
@@ -266,6 +280,9 @@ func normalizeProject(project Project) Project {
 	if project.Export.EndFrame == 0 {
 		project.Export.EndFrame = def.Export.EndFrame
 	}
+	if project.Export.FrameScope == "" {
+		project.Export.FrameScope = def.Export.FrameScope
+	}
 	if project.Export.FilePrefix == "" {
 		project.Export.FilePrefix = def.Export.FilePrefix
 	}
@@ -275,6 +292,7 @@ func normalizeProject(project Project) Project {
 	if project.Export.Supersampling == 0 {
 		project.Export.Supersampling = def.Export.Supersampling
 	}
+	project.Export.PreviewRegion = normalizeExportRegion(project.Export.PreviewRegion)
 	if project.Metadata.ProjectName == "" {
 		project.Metadata.ProjectName = def.Metadata.ProjectName
 	}
@@ -293,4 +311,37 @@ func (p Project) Marshal() ([]byte, error) {
 
 func timeNowString() string {
 	return time.Now().Format(time.RFC3339)
+}
+
+func fullExportRegion() ExportRegion {
+	return ExportRegion{Width: 1, Height: 1}
+}
+
+func normalizeExportRegion(region ExportRegion) ExportRegion {
+	if region.Width <= 0 || region.Height <= 0 {
+		return fullExportRegion()
+	}
+
+	region.X = clampFloat(region.X, 0, 1)
+	region.Y = clampFloat(region.Y, 0, 1)
+	region.Width = clampFloat(region.Width, 0.01, 1)
+	region.Height = clampFloat(region.Height, 0.01, 1)
+
+	if region.X+region.Width > 1 {
+		region.X = 1 - region.Width
+	}
+	if region.Y+region.Height > 1 {
+		region.Y = 1 - region.Height
+	}
+	return region
+}
+
+func clampFloat(value, minValue, maxValue float64) float64 {
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
 }

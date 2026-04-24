@@ -23,26 +23,27 @@ const (
 )
 
 type previewCard struct {
-	card            *widget.Card
-	scroll          *container.Scroll
-	content         *fyne.Container
-	bg              *canvas.Rectangle
-	checker         *canvas.Raster
-	image           *canvas.Image
-	safeAreaLines   [4]*canvas.Line
-	subtitle        *canvas.Text
-	zoomSlider      *widget.Slider
-	bgModeSelect    *widget.Select
-	customColorBtn  *widget.Button
-	checkerCheck    *widget.Check
-	safeAreaCheck   *widget.Check
-	window          fyne.Window
-	project         Project
-	zoom            float64
-	bgMode          string
-	customBGColor   color.NRGBA
-	checkerboardOn  bool
-	safeAreaVisible bool
+	card              *widget.Card
+	scroll            *container.Scroll
+	content           *fyne.Container
+	bg                *canvas.Rectangle
+	checker           *canvas.Raster
+	image             *canvas.Image
+	safeAreaLines     [4]*canvas.Line
+	subtitle          *canvas.Text
+	zoomSlider        *widget.Slider
+	bgModeSelect      *widget.Select
+	customColorBtn    *widget.Button
+	checkerCheck      *widget.Check
+	safeAreaCheck     *widget.Check
+	window            fyne.Window
+	project           Project
+	zoom              float64
+	bgMode            string
+	customBGColor     color.NRGBA
+	checkerboardOn    bool
+	safeAreaVisible   bool
+	onViewportChanged func(ExportRegion)
 }
 
 func newPreviewCard(cardTitle string, window fyne.Window) *previewCard {
@@ -58,7 +59,7 @@ func newPreviewCard(cardTitle string, window fyne.Window) *previewCard {
 		cell := 18
 		light := color.NRGBA{R: 114, G: 118, B: 126, A: 255}
 		dark := color.NRGBA{R: 76, G: 80, B: 88, A: 255}
-		if ((x / cell) + (y / cell))%2 == 0 {
+		if ((x/cell)+(y/cell))%2 == 0 {
 			return light
 		}
 		return dark
@@ -81,6 +82,9 @@ func newPreviewCard(cardTitle string, window fyne.Window) *previewCard {
 
 	card.scroll = container.NewScroll(card.content)
 	card.scroll.SetMinSize(fyne.NewSize(previewBaseWidth, previewBaseHeight))
+	card.scroll.OnScrolled = func(_ fyne.Position) {
+		card.notifyViewportChanged()
+	}
 
 	card.subtitle = canvas.NewText("", color.NRGBA{R: 130, G: 136, B: 145, A: 255})
 	card.subtitle.TextSize = 15
@@ -92,6 +96,7 @@ func newPreviewCard(cardTitle string, window fyne.Window) *previewCard {
 	card.zoomSlider.OnChanged = func(value float64) {
 		card.zoom = value
 		card.layoutPreview()
+		card.notifyViewportChanged()
 	}
 
 	card.bgModeSelect = widget.NewSelect([]string{previewBGProject, previewBGBlack, previewBGCustom}, func(value string) {
@@ -192,6 +197,36 @@ func (p *previewCard) layoutPreview() {
 	}
 }
 
+func (p *previewCard) visibleRegion() ExportRegion {
+	if p.scroll == nil || p.content == nil {
+		return fullExportRegion()
+	}
+
+	contentSize := p.content.Size()
+	if contentSize.Width <= 0 || contentSize.Height <= 0 {
+		return fullExportRegion()
+	}
+
+	viewportSize := p.scroll.Size()
+	if viewportSize.Width <= 0 || viewportSize.Height <= 0 {
+		return fullExportRegion()
+	}
+
+	region := ExportRegion{
+		X:      float64(p.scroll.Offset.X / contentSize.Width),
+		Y:      float64(p.scroll.Offset.Y / contentSize.Height),
+		Width:  float64(minFloat32(viewportSize.Width, contentSize.Width) / contentSize.Width),
+		Height: float64(minFloat32(viewportSize.Height, contentSize.Height) / contentSize.Height),
+	}
+	return normalizeExportRegion(region)
+}
+
+func (p *previewCard) notifyViewportChanged() {
+	if p.onViewportChanged != nil {
+		p.onViewportChanged(p.visibleRegion())
+	}
+}
+
 func (p *previewCard) refreshBackground() {
 	p.bg.FillColor = p.backgroundColor()
 	p.bg.Refresh()
@@ -264,6 +299,13 @@ func previewSubtitle(project Project, stats textStats, frame int) string {
 		"Frame " + strconv.Itoa(frameState.Frame),
 		"Unsupported: " + formatUnsupportedRunes(stats.UnsupportedUnique),
 	}, " • ")
+}
+
+func minFloat32(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func previewBackground(project Project) color.NRGBA {

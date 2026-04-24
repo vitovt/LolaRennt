@@ -84,6 +84,7 @@ type appUI struct {
 	fpsEntry             *widget.Entry
 	startFrameEntry      *widget.Entry
 	endFrameEntry        *widget.Entry
+	frameScopeSelect     *widget.Select
 	outputFolderEntry    *widget.Entry
 	filePrefixEntry      *widget.Entry
 	overwriteSelect      *widget.Select
@@ -569,6 +570,14 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 	ui.fpsEntry = newIntEntry(ui.bindInt(func(value int) { ui.project.Export.FPS = value }))
 	ui.startFrameEntry = newIntEntry(ui.bindInt(func(value int) { ui.project.Export.StartFrame = value }))
 	ui.endFrameEntry = newIntEntry(ui.bindInt(func(value int) { ui.project.Export.EndFrame = value }))
+	ui.frameScopeSelect = widget.NewSelect([]string{exportScopeFullCanvas, exportScopePreviewRegion}, func(value string) {
+		if ui.suspend {
+			return
+		}
+		ui.project.Export.FrameScope = value
+		ui.touchProject()
+		ui.refreshDerivedUI()
+	})
 	ui.outputFolderEntry = widget.NewEntry()
 	ui.outputFolderEntry.OnChanged = func(value string) {
 		if ui.suspend {
@@ -627,6 +636,10 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 	ui.exportETA = widget.NewLabel("ETA: --")
 	ui.ffmpegStatus = widget.NewLabel("")
 	ui.exportPreview = newPreviewCard("Export preview", ui.window)
+	ui.exportPreview.onViewportChanged = func(region ExportRegion) {
+		ui.project.Export.PreviewRegion = region
+	}
+	ui.project.Export.PreviewRegion = ui.exportPreview.visibleRegion()
 
 	left := paneScroll(container.NewVBox(
 		sectionCard("Output", container.NewVBox(
@@ -657,6 +670,8 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 			ui.startFrameEntry,
 			widget.NewLabel("End frame"),
 			ui.endFrameEntry,
+			widget.NewLabel("Frame scope"),
+			ui.frameScopeSelect,
 		)),
 		sectionCard("Background", container.NewVBox(
 			ui.backgroundModeSelect,
@@ -897,6 +912,7 @@ func (ui *appUI) applyProjectToWidgets() {
 	ui.fpsEntry.SetText(strconv.Itoa(ui.project.Export.FPS))
 	ui.startFrameEntry.SetText(strconv.Itoa(ui.project.Export.StartFrame))
 	ui.endFrameEntry.SetText(strconv.Itoa(ui.project.Export.EndFrame))
+	ui.frameScopeSelect.SetSelected(ui.project.Export.FrameScope)
 	ui.outputFolderEntry.SetText(ui.project.Export.OutputFolder)
 	ui.filePrefixEntry.SetText(ui.project.Export.FilePrefix)
 	ui.overwriteSelect.SetSelected(ui.project.Export.OverwritePolicy)
@@ -945,12 +961,13 @@ func (ui *appUI) refreshDerivedUI() {
 	))
 
 	ui.exportSummary.SetText(fmt.Sprintf(
-		"Canvas: %dx%d\nFrames: %d-%d\nFPS: %d\nBackground: %s\nFit: %s",
+		"Canvas: %dx%d\nFrames: %d-%d\nFPS: %d\nScope: %s\nBackground: %s\nFit: %s",
 		ui.project.Export.Width,
 		ui.project.Export.Height,
 		ui.project.Export.StartFrame,
 		ui.project.Export.EndFrame,
 		ui.project.Export.FPS,
+		ui.project.Export.FrameScope,
 		ui.project.Background.Mode,
 		ui.project.Background.FitMode,
 	))

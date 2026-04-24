@@ -114,7 +114,11 @@ func renderExportImage(project Project, stats textStats, frame int) (image.Image
 	height := project.Export.Height
 	supersampling := project.Export.Supersampling
 	if supersampling <= 1 {
-		return renderImage(project, stats, frame, width, height)
+		rendered, err := renderImage(project, stats, frame, width, height)
+		if err != nil {
+			return nil, err
+		}
+		return renderExportScope(rendered, project.Export, width, height), nil
 	}
 
 	renderWidth := maxInt(int(float64(width)*supersampling+0.5), width)
@@ -124,9 +128,43 @@ func renderExportImage(project Project, stats textStats, frame int) (image.Image
 		return nil, err
 	}
 
-	downsampled := image.NewNRGBA(image.Rect(0, 0, width, height))
-	xdraw.CatmullRom.Scale(downsampled, downsampled.Bounds(), highRes, highRes.Bounds(), draw.Src, nil)
-	return downsampled, nil
+	return renderExportScope(highRes, project.Export, width, height), nil
+}
+
+func renderExportScope(src image.Image, export ExportSettings, width, height int) image.Image {
+	target := image.NewNRGBA(image.Rect(0, 0, width, height))
+	sourceBounds := src.Bounds()
+	if export.FrameScope == exportScopePreviewRegion {
+		sourceBounds = exportRegionBounds(src.Bounds(), export.PreviewRegion)
+	}
+	xdraw.CatmullRom.Scale(target, target.Bounds(), src, sourceBounds, draw.Src, nil)
+	return target
+}
+
+func exportRegionBounds(bounds image.Rectangle, region ExportRegion) image.Rectangle {
+	region = normalizeExportRegion(region)
+	if region.Width >= 1 && region.Height >= 1 {
+		return bounds
+	}
+
+	x1 := bounds.Min.X + int(float64(bounds.Dx())*region.X)
+	y1 := bounds.Min.Y + int(float64(bounds.Dy())*region.Y)
+	x2 := bounds.Min.X + int(float64(bounds.Dx())*(region.X+region.Width))
+	y2 := bounds.Min.Y + int(float64(bounds.Dy())*(region.Y+region.Height))
+
+	if x2 <= x1 {
+		x2 = x1 + 1
+	}
+	if y2 <= y1 {
+		y2 = y1 + 1
+	}
+	if x2 > bounds.Max.X {
+		x2 = bounds.Max.X
+	}
+	if y2 > bounds.Max.Y {
+		y2 = bounds.Max.Y
+	}
+	return image.Rect(x1, y1, x2, y2)
 }
 
 func nextAvailablePrefix(outputFolder, prefix string, project Project) string {
