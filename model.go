@@ -103,6 +103,8 @@ type ExportSettings struct {
 	FilePrefix      string  `json:"file_prefix"`
 	OverwritePolicy string  `json:"overwrite_policy"`
 	Supersampling   float64 `json:"supersampling"`
+	FFmpegPath      string  `json:"ffmpeg_path"`
+	FFprobePath     string  `json:"ffprobe_path"`
 }
 
 type MetadataSettings struct {

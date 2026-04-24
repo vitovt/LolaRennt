@@ -14,8 +14,9 @@ var (
 	videoFrameCache   = map[string]image.Image{}
 )
 
-func loadVideoBackgroundFrame(path string, timeSec float64) (image.Image, error) {
-	key := fmt.Sprintf("%s@%.3f", path, timeSec)
+func loadVideoBackgroundFrame(ffmpegPath string, path string, timeSec float64) (image.Image, error) {
+	ffmpegBin := defaultToolPath(ffmpegPath, "ffmpeg")
+	key := fmt.Sprintf("%s|%s@%.3f", ffmpegBin, path, timeSec)
 	videoFrameCacheMu.Lock()
 	if cached, ok := videoFrameCache[key]; ok {
 		videoFrameCacheMu.Unlock()
@@ -24,7 +25,7 @@ func loadVideoBackgroundFrame(path string, timeSec float64) (image.Image, error)
 	videoFrameCacheMu.Unlock()
 
 	cmd := exec.Command(
-		"ffmpeg",
+		ffmpegBin,
 		"-hide_banner",
 		"-loglevel", "error",
 		"-ss", fmt.Sprintf("%.3f", timeSec),
@@ -39,7 +40,7 @@ func loadVideoBackgroundFrame(path string, timeSec float64) (image.Image, error)
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ffmpeg video frame extraction failed: %w: %s", err, stderr.String())
+		return nil, fmt.Errorf("ffmpeg video frame extraction failed via %s: %w: %s", ffmpegBin, err, stderr.String())
 	}
 
 	img, _, err := image.Decode(bytes.NewReader(out.Bytes()))

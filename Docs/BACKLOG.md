@@ -21,7 +21,7 @@ Current focus:
 - [x] Add export `ETA`
 - [x] Implement `Open output folder`
 - [ ] Add `preview region / full canvas` control in export
-- [ ] Support manual `ffmpeg` / `ffprobe` path override
+- [x] Support manual `ffmpeg` / `ffprobe` path override
 - [ ] Add preset management workflow: save, duplicate, delete
 - [ ] Persist presets as JSON instead of shipping only hardcoded presets
 

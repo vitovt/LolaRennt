@@ -83,7 +83,8 @@ func paintBackground(img *image.NRGBA, project Project, timeSec float64) {
 		drawPlaceholderBands(img, color.NRGBA{R: 56, G: 78, B: 86, A: 255}, color.NRGBA{R: 24, G: 32, B: 36, A: 255})
 	case backgroundModeVideo:
 		if project.Background.VideoPath != "" {
-			bg, err := loadVideoBackgroundFrame(project.Background.VideoPath, timeSec)
+			tools := resolveFFmpegTools(project)
+			bg, err := loadVideoBackgroundFrame(tools.FFmpegPath, project.Background.VideoPath, timeSec)
 			if err == nil {
 				drawImageBackground(img, bg, project.Background.FitMode, 100)
 				return

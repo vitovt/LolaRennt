@@ -88,6 +88,8 @@ type appUI struct {
 	filePrefixEntry      *widget.Entry
 	overwriteSelect      *widget.Select
 	supersamplingSlider  *widget.Slider
+	ffmpegPathEntry      *widget.Entry
+	ffprobePathEntry     *widget.Entry
 	ffmpegCommand        *widget.Entry
 	exportSummary        *widget.Label
 	exportProgress       *widget.ProgressBar
@@ -596,6 +598,26 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 	ui.supersamplingSlider = newSlider(1, 4, ui.bindFloat(func(value float64) {
 		ui.project.Export.Supersampling = value
 	}))
+	ui.ffmpegPathEntry = widget.NewEntry()
+	ui.ffmpegPathEntry.SetPlaceHolder("Auto-detect ffmpeg")
+	ui.ffmpegPathEntry.OnChanged = func(value string) {
+		if ui.suspend {
+			return
+		}
+		ui.project.Export.FFmpegPath = value
+		ui.touchProject()
+		ui.refreshDerivedUI()
+	}
+	ui.ffprobePathEntry = widget.NewEntry()
+	ui.ffprobePathEntry.SetPlaceHolder("Auto-detect ffprobe")
+	ui.ffprobePathEntry.OnChanged = func(value string) {
+		if ui.suspend {
+			return
+		}
+		ui.project.Export.FFprobePath = value
+		ui.touchProject()
+		ui.refreshDerivedUI()
+	}
 	ui.ffmpegCommand = widget.NewMultiLineEntry()
 	ui.ffmpegCommand.Disable()
 	ui.exportLog = widget.NewMultiLineEntry()
@@ -654,7 +676,13 @@ func (ui *appUI) buildExportTab() fyne.CanvasObject {
 
 	right := paneScroll(container.NewVBox(
 		ui.exportPreview.object(),
-		sectionCard("FFmpeg tools", ui.ffmpegStatus),
+		sectionCard("FFmpeg tools", container.NewVBox(
+			ui.ffmpegStatus,
+			widget.NewLabel("ffmpeg path override"),
+			ui.ffmpegPathEntry,
+			widget.NewLabel("ffprobe path override"),
+			ui.ffprobePathEntry,
+		)),
 		sectionCard("FFmpeg command", ui.ffmpegCommand),
 		sectionCard("Export summary", ui.exportSummary),
 		sectionCard("Render control", container.NewVBox(
@@ -873,6 +901,8 @@ func (ui *appUI) applyProjectToWidgets() {
 	ui.filePrefixEntry.SetText(ui.project.Export.FilePrefix)
 	ui.overwriteSelect.SetSelected(ui.project.Export.OverwritePolicy)
 	ui.supersamplingSlider.SetValue(ui.project.Export.Supersampling)
+	ui.ffmpegPathEntry.SetText(ui.project.Export.FFmpegPath)
+	ui.ffprobePathEntry.SetText(ui.project.Export.FFprobePath)
 
 	ui.projectNameEntry.SetText(ui.project.Metadata.ProjectName)
 	ui.notesEntry.SetText(ui.project.Metadata.Notes)
@@ -1277,7 +1307,7 @@ func (ui *appUI) saveToPath(path string) error {
 }
 
 func (ui *appUI) buildFFmpegCommand() string {
-	tools := detectFFmpegTools()
+	tools := resolveFFmpegTools(ui.project)
 	fps := maxInt(ui.project.Export.FPS, 1)
 	outputFolder := strings.TrimSpace(ui.project.Export.OutputFolder)
 	if outputFolder == "" {
@@ -1290,10 +1320,7 @@ func (ui *appUI) buildFFmpegCommand() string {
 
 	framePattern := filepath.ToSlash(filepath.Join(outputFolder, prefix+"_%05d.png"))
 	outputPath := filepath.ToSlash(filepath.Join(outputFolder, prefix+".mp4"))
-	ffmpegBin := "ffmpeg"
-	if tools.FFmpegPath != "" {
-		ffmpegBin = tools.FFmpegPath
-	}
+	ffmpegBin := defaultToolPath(tools.FFmpegPath, "ffmpeg")
 	return fmt.Sprintf(
 		"\"%s\" -framerate %d -i \"%s\" -c:v libx264 -pix_fmt yuv420p \"%s\"",
 		ffmpegBin,
@@ -1570,16 +1597,21 @@ func (ui *appUI) appendExportLog(line string) {
 }
 
 func (ui *appUI) ffmpegStatusText() string {
-	tools := detectFFmpegTools()
-	ffmpeg := "not found"
-	ffprobe := "not found"
-	if tools.FFmpegPath != "" {
-		ffmpeg = tools.FFmpegPath
+	tools := resolveFFmpegTools(ui.project)
+	ffmpeg := formatToolStatus("ffmpeg", tools.FFmpegPath, tools.FFmpegManual)
+	ffprobe := formatToolStatus("ffprobe", tools.FFprobePath, tools.FFprobeManual)
+	return fmt.Sprintf("%s\n%s", ffmpeg, ffprobe)
+}
+
+func formatToolStatus(name, path string, manual bool) string {
+	if cleanToolOverride(path) == "" {
+		return fmt.Sprintf("%s: not found", name)
 	}
-	if tools.FFprobePath != "" {
-		ffprobe = tools.FFprobePath
+	source := "detected"
+	if manual {
+		source = "manual override"
 	}
-	return fmt.Sprintf("ffmpeg: %s\nffprobe: %s", ffmpeg, ffprobe)
+	return fmt.Sprintf("%s: %s (%s)", name, path, source)
 }
 
 func (ui *appUI) recentProjectPaths() []string {
