@@ -7,24 +7,22 @@ The app is written in Go with Fyne. It focuses on fixed-width electronic display
 ## Preview
 
 ### Screenshots
-
-![Text and style tab with segment display preview](screenshots/screenshot1.png)
-
-![Animation and preview tab](screenshots/screenshot2.png)
-
-![Export tab with rendered frame progress](screenshots/screenshot3.png)
-
-![Project and presets tab](screenshots/screenshot4.png)
+<img width="360" alt="Text and style tab with segment display preview" src="screenshots/screenshot1.png"> <img width="360" alt="Animation and preview tab" src="screenshots/screenshot2.png">
+<img width="360" alt="Export tab with rendered frame progress" src="screenshots/screenshot3.png"> <img width="360" alt="Project and presets tab" src="screenshots/screenshot4.png">
 
 ### Demo Videos
 
-GitHub renders images inline reliably; the MP4 demos below are linked from preview thumbnails.
+* [Segment animation demo 1](screenshots/lola_frame1.mp4)
 
-| Demo | Preview |
-| --- | --- |
-| [Segment animation demo 1](screenshots/lola_frame1.mp4) | [![Segment animation demo 1](screenshots/screenshot1.png)](screenshots/lola_frame1.mp4) |
-| [Segment animation demo 2](screenshots/lola_frame2.mp4) | [![Segment animation demo 2](screenshots/screenshot2.png)](screenshots/lola_frame2.mp4) |
-| [Segment animation demo 3](screenshots/lola_frame3.mp4) | [![Segment animation demo 3](screenshots/screenshot3.png)](screenshots/lola_frame3.mp4) |
+https://github.com/user-attachments/assets/7f73ba1b-c6e1-45b2-a8da-aa8f34e9c94f
+
+* [Segment animation demo 2](screenshots/lola_frame2.mp4)
+
+https://github.com/user-attachments/assets/b9eab3fe-4ac9-425e-b6e1-6bacdc15b331 
+
+* [Segment animation demo 3](screenshots/lola_frame3.mp4)
+
+https://github.com/user-attachments/assets/5f574df8-4ca9-4635-ae6e-299ecce8873a
 
 ## Features
 
