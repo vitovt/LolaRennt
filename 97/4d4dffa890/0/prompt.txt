@@ -1,0 +1,6 @@
+Fix it
+
+---
+
+Now replace Fyne filepicker/saver dialog with native OS dialog. Here is an example how it can be implemented:
+https://github.com/vitovt/OCImageDownloader/commit/e29738f76eb01eceb6d04a4f330863cf052d984d
