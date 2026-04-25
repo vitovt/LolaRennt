@@ -121,7 +121,11 @@ var segmentGlyphs = map[rune]segmentGlyph{
 	'L': lineGlyph(segmentUpperLeft, segmentLowerLeft, segmentBottomLeft, segmentBottomRight),
 	'M': lineGlyph(segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentLowerRight, segmentUpperLeftDiagonal, segmentUpperRightDiagonal),
 	'N': lineGlyph(segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentLowerRight, segmentUpperLeftDiagonal, segmentLowerRightDiagonal),
-	'O': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperRight, segmentLowerRight, segmentBottomRight, segmentBottomLeft, segmentLowerLeft, segmentUpperLeft),
+	'O': lineGlyphWithStrokes(
+		[]segmentID{segmentUpperRight, segmentLowerRight, segmentLowerLeft, segmentUpperLeft},
+		segmentStrokeUnit{x1: 0.16, y1: 0.08, x2: 0.84, y2: 0.08, widthScale: 1},
+		segmentStrokeUnit{x1: 0.16, y1: 0.92, x2: 0.84, y2: 0.92, widthScale: 1},
+	),
 	'P': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentMiddleLeft, segmentMiddleRight),
 	'Q': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperRight, segmentLowerRight, segmentBottomRight, segmentBottomLeft, segmentLowerLeft, segmentUpperLeft, segmentLowerRightDiagonal),
 	'R': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentMiddleLeft, segmentMiddleRight, segmentLowerRightDiagonal),
