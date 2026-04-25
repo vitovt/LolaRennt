@@ -1,0 +1,7 @@
+Ok. It looks good.
+make improvements:
+- bottom of V now looks mirrored: look at V.png
+- Make B (and cyryllic В) and D - more round, for this - make upper and bottom line shorter. Like upper in B now. And for O - make both longer.
+- for Я add right bottom line, it miss now: Я.png
+- Ю is hard to recognize. Add two more vertical lines in the center (like in Щ)
+commit every letter change with separate commit
