@@ -415,7 +415,7 @@ func extractSegmentPrimitives(matrix glyphMatrix) ([]segmentBar, []segmentDot) {
 
 func shouldUseHorizontalBar(matrix glyphMatrix, startX, endX, y int) bool {
 	runLength := endX - startX + 1
-	if runLength >= 3 {
+	if runLength >= 2 {
 		return true
 	}
 	if runLength <= 1 {
@@ -431,7 +431,7 @@ func shouldUseHorizontalBar(matrix glyphMatrix, startX, endX, y int) bool {
 
 func shouldUseVerticalBar(matrix glyphMatrix, x, startY, endY int) bool {
 	runLength := endY - startY + 1
-	if runLength >= 3 {
+	if runLength >= 2 {
 		return true
 	}
 	if runLength <= 1 {
