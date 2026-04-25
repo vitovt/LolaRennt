@@ -1,7 +1,7 @@
-In this repository in a golang desktop application. It generates visual letters. The documentation is in Docs folder.
-The problem is that option Segment display Doesn't work as segment display. It should be lines like in old calculators (mainly numbers).
-There was no dots, only lines.
-Here in Segment display are a lot of dots.
-Actual screenshot is here:
-[Image #1]
-You need to plan and rewrite completely this mode. It should look more like in the screenshots in Docs folder.
+Ok. It looks good.
+make improvements:
+- bottom of V now looks mirrored: look at V.png
+- Make B (and cyryllic В) and D - more round, for this - make upper and bottom line shorter. Like upper in B now. And for O - make both longer.
+- for Я add right bottom line, it miss now: Я.png
+- Ю is hard to recognize. Add two more vertical lines in the center (like in Щ)
+commit every letter change with separate commit
