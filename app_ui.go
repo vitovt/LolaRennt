@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image/color"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,9 +16,9 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	nativedialog "github.com/sqweek/dialog"
 )
 
 type appUI struct {
@@ -1490,40 +1490,38 @@ func (ui *appUI) newProject() {
 }
 
 func (ui *appUI) openProjectDialog() {
-	fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
-		if err != nil {
-			dialog.ShowError(err, ui.window)
-			return
-		}
-		if reader == nil {
-			return
-		}
-		defer reader.Close()
+	path, err := nativedialog.File().
+		Title("Open project").
+		Filter("JSON project", "json").
+		SetStartDir(nativeStartDir(ui.projectPath)).
+		Load()
+	if nativeDialogCancelled(err) {
+		return
+	}
+	if err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
 
-		raw, err := io.ReadAll(reader)
-		if err != nil {
-			dialog.ShowError(err, ui.window)
-			return
-		}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
 
-		var loaded Project
-		if err := json.Unmarshal(raw, &loaded); err != nil {
-			dialog.ShowError(err, ui.window)
-			return
-		}
+	var loaded Project
+	if err := json.Unmarshal(raw, &loaded); err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
 
-		ui.stopPlaybackLoop()
-		ui.project = normalizeProject(loaded)
-		ui.ensureSeed()
-		if reader.URI() != nil {
-			ui.projectPath = reader.URI().Path()
-			ui.recordRecentProject(ui.projectPath)
-		}
-		ui.applyProjectToWidgets()
-		ui.refreshDerivedUI()
-	}, ui.window)
-	fd.SetFilter(storage.NewExtensionFileFilter([]string{".json"}))
-	fd.Show()
+	ui.stopPlaybackLoop()
+	ui.project = normalizeProject(loaded)
+	ui.ensureSeed()
+	ui.projectPath = path
+	ui.recordRecentProject(ui.projectPath)
+	ui.applyProjectToWidgets()
+	ui.refreshDerivedUI()
 }
 
 func (ui *appUI) saveProject() {
@@ -1539,35 +1537,26 @@ func (ui *appUI) saveProject() {
 
 func (ui *appUI) saveProjectAsDialog() {
 	ui.ensureSeed()
-	fd := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
-		if err != nil {
-			dialog.ShowError(err, ui.window)
-			return
-		}
-		if writer == nil {
-			return
-		}
-		defer writer.Close()
+	path, err := nativedialog.File().
+		Title("Save project").
+		Filter("JSON project", "json").
+		SetStartDir(nativeStartDir(ui.projectPath)).
+		SetStartFile(safeFileName(ui.project.Metadata.ProjectName) + ".json").
+		Save()
+	if nativeDialogCancelled(err) {
+		return
+	}
+	if err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
 
-		ui.touchProject()
-		raw, err := ui.project.Marshal()
-		if err != nil {
-			dialog.ShowError(err, ui.window)
-			return
-		}
-		if _, err := writer.Write(raw); err != nil {
-			dialog.ShowError(err, ui.window)
-			return
-		}
-		if writer.URI() != nil {
-			ui.projectPath = writer.URI().Path()
-			ui.recordRecentProject(ui.projectPath)
-		}
-		ui.refreshDerivedUI()
-	}, ui.window)
-	fd.SetFilter(storage.NewExtensionFileFilter([]string{".json"}))
-	fd.SetFileName(safeFileName(ui.project.Metadata.ProjectName) + ".json")
-	fd.Show()
+	if filepath.Ext(path) == "" {
+		path += ".json"
+	}
+	if err := ui.saveToPath(path); err != nil {
+		dialog.ShowError(err, ui.window)
+	}
 }
 
 func (ui *appUI) saveToPath(path string) error {
@@ -1742,19 +1731,22 @@ func formatShortDuration(d time.Duration) string {
 }
 
 func (ui *appUI) pickOutputFolder() {
-	dialog.ShowFolderOpen(func(list fyne.ListableURI, err error) {
-		if err != nil {
-			dialog.ShowError(err, ui.window)
-			return
-		}
-		if list == nil {
-			return
-		}
-		ui.project.Export.OutputFolder = list.Path()
-		ui.touchProject()
-		ui.applyProjectToWidgets()
-		ui.refreshDerivedUI()
-	}, ui.window)
+	path, err := nativedialog.Directory().
+		Title("Select output folder").
+		SetStartDir(nativeStartDir(ui.project.Export.OutputFolder)).
+		Browse()
+	if nativeDialogCancelled(err) {
+		return
+	}
+	if err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
+
+	ui.project.Export.OutputFolder = path
+	ui.touchProject()
+	ui.applyProjectToWidgets()
+	ui.refreshDerivedUI()
 }
 
 func (ui *appUI) openOutputFolderAction() {
@@ -1799,47 +1791,45 @@ func openPathInFileManager(path string) error {
 }
 
 func (ui *appUI) pickBackgroundImage() {
-	fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
-		if err != nil {
-			dialog.ShowError(err, ui.window)
-			return
-		}
-		if reader == nil {
-			return
-		}
-		defer reader.Close()
-		if reader.URI() != nil {
-			ui.project.Background.ImagePath = reader.URI().Path()
-			ui.project.Background.Mode = backgroundModeImage
-			ui.touchProject()
-			ui.applyProjectToWidgets()
-			ui.refreshDerivedUI()
-		}
-	}, ui.window)
-	fd.SetFilter(storage.NewExtensionFileFilter([]string{".png", ".jpg", ".jpeg", ".webp"}))
-	fd.Show()
+	path, err := nativedialog.File().
+		Title("Select background image").
+		Filter("Image files", "png", "jpg", "jpeg", "webp").
+		SetStartDir(nativeStartDir(ui.project.Background.ImagePath)).
+		Load()
+	if nativeDialogCancelled(err) {
+		return
+	}
+	if err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
+
+	ui.project.Background.ImagePath = path
+	ui.project.Background.Mode = backgroundModeImage
+	ui.touchProject()
+	ui.applyProjectToWidgets()
+	ui.refreshDerivedUI()
 }
 
 func (ui *appUI) pickBackgroundVideo() {
-	fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
-		if err != nil {
-			dialog.ShowError(err, ui.window)
-			return
-		}
-		if reader == nil {
-			return
-		}
-		defer reader.Close()
-		if reader.URI() != nil {
-			ui.project.Background.VideoPath = reader.URI().Path()
-			ui.project.Background.Mode = backgroundModeVideo
-			ui.touchProject()
-			ui.applyProjectToWidgets()
-			ui.refreshDerivedUI()
-		}
-	}, ui.window)
-	fd.SetFilter(storage.NewExtensionFileFilter([]string{".mp4", ".mov", ".mkv", ".webm"}))
-	fd.Show()
+	path, err := nativedialog.File().
+		Title("Select background video").
+		Filter("Video files", "mp4", "mov", "mkv", "webm").
+		SetStartDir(nativeStartDir(ui.project.Background.VideoPath)).
+		Load()
+	if nativeDialogCancelled(err) {
+		return
+	}
+	if err != nil {
+		dialog.ShowError(err, ui.window)
+		return
+	}
+
+	ui.project.Background.VideoPath = path
+	ui.project.Background.Mode = backgroundModeVideo
+	ui.touchProject()
+	ui.applyProjectToWidgets()
+	ui.refreshDerivedUI()
 }
 
 func (ui *appUI) setRenderSize(width, height int) {
@@ -1857,6 +1847,25 @@ func safeFileName(name string) string {
 	}
 	replacer := strings.NewReplacer(" ", "_", "/", "_", "\\", "_", ":", "_")
 	return replacer.Replace(trimmed)
+}
+
+func nativeDialogCancelled(err error) bool {
+	return errors.Is(err, nativedialog.ErrCancelled)
+}
+
+func nativeStartDir(path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "."
+	}
+	if info, err := os.Stat(trimmed); err == nil && info.IsDir() {
+		return trimmed
+	}
+	dir := filepath.Dir(trimmed)
+	if info, err := os.Stat(dir); err == nil && info.IsDir() {
+		return dir
+	}
+	return "."
 }
 
 func (ui *appUI) appendExportLog(line string) {
