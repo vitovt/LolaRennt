@@ -167,7 +167,11 @@ var segmentGlyphs = map[rune]segmentGlyph{
 	'Л': lineGlyph(segmentLowerLeftDiagonal, segmentUpperRight, segmentLowerRight),
 	'М': lineGlyph(segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentLowerRight, segmentUpperLeftDiagonal, segmentUpperRightDiagonal),
 	'Н': lineGlyph(segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentLowerRight, segmentMiddleLeft, segmentMiddleRight),
-	'О': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperRight, segmentLowerRight, segmentBottomRight, segmentBottomLeft, segmentLowerLeft, segmentUpperLeft),
+	'О': lineGlyphWithStrokes(
+		[]segmentID{segmentUpperRight, segmentLowerRight, segmentLowerLeft, segmentUpperLeft},
+		segmentStrokeUnit{x1: 0.16, y1: 0.08, x2: 0.84, y2: 0.08, widthScale: 1},
+		segmentStrokeUnit{x1: 0.16, y1: 0.92, x2: 0.84, y2: 0.92, widthScale: 1},
+	),
 	'П': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentLowerRight),
 	'Р': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentMiddleLeft, segmentMiddleRight),
 	'С': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentBottomLeft, segmentBottomRight),
