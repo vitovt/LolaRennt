@@ -129,6 +129,8 @@ func drawMatrixDisplayText(img *image.NRGBA, project Project, lines []string, mo
 	inactiveColor := parseHexColor(project.Style.InactiveColor, color.NRGBA{R: 49, G: 20, B: 14, A: 255})
 	inactiveColor.A = uint8(40 + (project.Style.InactiveVisibility/100.0)*140)
 	blockMode := mode == displayModeBlockMatrix
+	activeGlowAlpha := glowAlpha(project.Style.GlowIntensity, 8, 64)
+	ambientGlowAlpha := glowAlpha(project.Style.GlowIntensity, 2, 24)
 
 	totalHeight := len(lines)*layout.charHeight + maxInt(len(lines)-1, 0)*layout.lineGap
 	startY := maxInt((img.Bounds().Dy()-totalHeight)/2, layout.padding)
@@ -140,7 +142,7 @@ func drawMatrixDisplayText(img *image.NRGBA, project Project, lines []string, mo
 
 		for _, r := range lineRunes {
 			matrix := matrixGlyphForRune(r, layout.cols, layout.rows)
-			drawGlyphBox(img, x, y, layout, matrix, inactiveColor, mainColor, glowColor, blockMode)
+			drawGlyphBox(img, x, y, layout, matrix, inactiveColor, mainColor, glowColor, blockMode, activeGlowAlpha, ambientGlowAlpha)
 			x += layout.charWidth + layout.charGap
 		}
 	}
@@ -151,6 +153,7 @@ func drawSegmentDisplayText(img *image.NRGBA, project Project, lines []string) e
 	layout := computeDisplayLayout(project, lines, img.Bounds().Dx(), img.Bounds().Dy(), displayModeSegment)
 	mainColor := parseHexColor(project.Style.MainColor, color.NRGBA{R: 255, G: 96, B: 64, A: 255})
 	glowColor := parseHexColor(project.Style.GlowColor, color.NRGBA{R: 255, G: 140, B: 102, A: 255})
+	activeGlowAlpha := glowAlpha(project.Style.GlowIntensity, 10, 76)
 
 	totalHeight := len(lines)*layout.charHeight + maxInt(len(lines)-1, 0)*layout.lineGap
 	startY := maxInt((img.Bounds().Dy()-totalHeight)/2, layout.padding)
@@ -162,7 +165,7 @@ func drawSegmentDisplayText(img *image.NRGBA, project Project, lines []string) e
 
 		for _, r := range lineRunes {
 			matrix := matrixGlyphForRune(r, layout.cols, layout.rows)
-			drawSegmentGlyph(img, x, y, layout, matrix, mainColor, glowColor)
+			drawSegmentGlyph(img, x, y, layout, matrix, mainColor, glowColor, activeGlowAlpha)
 			x += layout.charWidth + layout.charGap
 		}
 	}
@@ -351,10 +354,9 @@ type segmentDot struct {
 	maxY int
 }
 
-func drawSegmentGlyph(img *image.NRGBA, x, y int, layout displayLayout, matrix glyphMatrix, activeColor, glowColor color.NRGBA) {
+func drawSegmentGlyph(img *image.NRGBA, x, y int, layout displayLayout, matrix glyphMatrix, activeColor, glowColor color.NRGBA, glowAlpha uint8) {
 	bars, dots := extractSegmentPrimitives(matrix)
 	thickness := maxInt(minInt(layout.cellWidth, layout.cellHeight)*5/8, 2)
-	glowAlpha := uint8(52)
 
 	for _, bar := range bars {
 		rect := segmentBarRect(x, y, layout, bar, thickness)
@@ -539,12 +541,7 @@ func segmentCellCenter(originX, originY int, layout displayLayout, gx, gy int) (
 	return cellX + layout.cellWidth/2, cellY + layout.cellHeight/2
 }
 
-func drawGlyphBox(img *image.NRGBA, x, y int, layout displayLayout, matrix glyphMatrix, inactiveColor, activeColor, glowColor color.NRGBA, blockMode bool) {
-	glowAlpha := uint8(32)
-	if activeColor.A > 0 {
-		glowAlpha = 40
-	}
-
+func drawGlyphBox(img *image.NRGBA, x, y int, layout displayLayout, matrix glyphMatrix, inactiveColor, activeColor, glowColor color.NRGBA, blockMode bool, activeGlowAlpha, ambientGlowAlpha uint8) {
 	for gy := 0; gy < layout.rows; gy++ {
 		for gx := 0; gx < layout.cols; gx++ {
 			cx := x + gx*(layout.cellWidth+layout.cellGapX)
@@ -553,20 +550,25 @@ func drawGlyphBox(img *image.NRGBA, x, y int, layout displayLayout, matrix glyph
 			if blockMode {
 				drawBlockCell(img, cx, cy, layout.cellWidth, layout.cellHeight, inactiveColor)
 				if matrix.At(gx, gy) {
-					drawBlockGlow(img, cx, cy, layout.cellWidth, layout.cellHeight, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: glowAlpha})
+					drawBlockGlow(img, cx, cy, layout.cellWidth, layout.cellHeight, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: activeGlowAlpha})
 					drawBlockCell(img, cx, cy, layout.cellWidth, layout.cellHeight, activeColor)
 				}
 			} else {
 				radius := maxInt(minInt(layout.cellWidth, layout.cellHeight)/2-1, 1)
-				drawGlowDot(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius+2, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: 26})
+				drawGlowDot(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius+2, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: ambientGlowAlpha})
 				fillCircle(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius, inactiveColor)
 				if matrix.At(gx, gy) {
-					drawGlowDot(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius+3, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: glowAlpha + 40})
+					drawGlowDot(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius+3, color.NRGBA{R: glowColor.R, G: glowColor.G, B: glowColor.B, A: uint8(minInt(int(activeGlowAlpha)+24, 96))})
 					fillCircle(img, cx+layout.cellWidth/2, cy+layout.cellHeight/2, radius, activeColor)
 				}
 			}
 		}
 	}
+}
+
+func glowAlpha(intensity, minValue, maxValue float64) uint8 {
+	t := clampFloat(intensity, 0, 100) / 100
+	return uint8(math.Round(minValue + (maxValue-minValue)*t))
 }
 
 func drawFooterInfo(img *image.NRGBA, project Project, frame animatedFrame) {
