@@ -30,3 +30,10 @@ func parseHexColor(value string, fallback color.NRGBA) color.NRGBA {
 		A: 255,
 	}
 }
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}

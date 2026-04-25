@@ -1859,13 +1859,6 @@ func safeFileName(name string) string {
 	return replacer.Replace(trimmed)
 }
 
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func (ui *appUI) appendExportLog(line string) {
 	current := strings.TrimSpace(ui.exportLog.Text)
 	if current == "" {
