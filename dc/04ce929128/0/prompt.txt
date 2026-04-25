@@ -1,0 +1,7 @@
+In this repository in a golang desktop application. It generates visual letters. The documentation is in Docs folder.
+The problem is that option Segment display Doesn't work as segment display. It should be lines like in old calculators (mainly numbers).
+There was no dots, only lines.
+Here in Segment display are a lot of dots.
+Actual screenshot is here:
+[Image #1]
+You need to plan and rewrite completely this mode. It should look more like in the screenshots in Docs folder.
