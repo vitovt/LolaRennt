@@ -146,7 +146,7 @@ var segmentGlyphs = map[rune]segmentGlyph{
 
 	'А': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentUpperRight, segmentMiddleLeft, segmentMiddleRight, segmentLowerLeft, segmentLowerRight),
 	'Б': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentMiddleLeft, segmentMiddleRight, segmentLowerRight, segmentBottomLeft, segmentBottomRight),
-	'В': lineGlyph(segmentTopLeft, segmentUpperLeft, segmentLowerLeft, segmentMiddleLeft, segmentMiddleRight, segmentUpperRight, segmentLowerRight, segmentBottomLeft, segmentBottomRight),
+	'В': lineGlyph(segmentTopLeft, segmentUpperLeft, segmentLowerLeft, segmentMiddleLeft, segmentMiddleRight, segmentUpperRight, segmentLowerRight, segmentBottomLeft),
 	'Г': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft),
 	'Ґ': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft),
 	'Д': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentLowerRight, segmentBottomLeft, segmentBottomRight),
