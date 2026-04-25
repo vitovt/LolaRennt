@@ -110,7 +110,7 @@ var segmentGlyphs = map[rune]segmentGlyph{
 	'A': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentUpperRight, segmentMiddleLeft, segmentMiddleRight, segmentLowerLeft, segmentLowerRight),
 	'B': lineGlyph(segmentTopLeft, segmentUpperLeft, segmentLowerLeft, segmentMiddleLeft, segmentMiddleRight, segmentUpperRight, segmentLowerRight, segmentBottomLeft),
 	'C': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentBottomLeft, segmentBottomRight),
-	'D': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentLowerRight, segmentBottomLeft, segmentBottomRight),
+	'D': lineGlyph(segmentTopLeft, segmentUpperLeft, segmentLowerLeft, segmentUpperRight, segmentLowerRight, segmentBottomLeft),
 	'E': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentMiddleLeft, segmentMiddleRight, segmentBottomLeft, segmentBottomRight),
 	'F': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentMiddleLeft, segmentMiddleRight),
 	'G': lineGlyph(segmentTopLeft, segmentTopRight, segmentUpperLeft, segmentLowerLeft, segmentBottomLeft, segmentBottomRight, segmentLowerRight, segmentMiddleRight),
