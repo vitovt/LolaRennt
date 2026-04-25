@@ -37,7 +37,7 @@ func defaultPresetLibrary() presetLibrary {
 				p.Style.InactiveColor = "#31140E"
 				p.Style.GlowIntensity = 58
 				p.Style.InactiveVisibility = 18
-				p.Display.Mode = displayModeSegment
+				p.Display.Mode = displayModeBlockMatrix
 			}),
 			makeProjectPreset("Orange VFD", func(p *Project) {
 				p.Style.MainColor = "#FFB347"
@@ -45,7 +45,7 @@ func defaultPresetLibrary() presetLibrary {
 				p.Style.InactiveColor = "#3C260B"
 				p.Style.GlowIntensity = 42
 				p.Style.InactiveVisibility = 12
-				p.Display.Mode = displayModeSegment
+				p.Display.Mode = displayModeBlockMatrix
 			}),
 			makeProjectPreset("Neon Cyan", func(p *Project) {
 				p.Style.MainColor = "#4FF2FF"

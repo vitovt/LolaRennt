@@ -6,8 +6,10 @@ import (
 )
 
 const (
-	displayModeSegment   = "Segment"
-	displayModeDotMatrix = "Dot-matrix"
+	displayModeBlockMatrix   = "Block matrix"
+	displayModeDotMatrix     = "Dot-matrix"
+	displayModeSegment       = "Segment display"
+	legacyDisplayModeSegment = "Segment"
 
 	colorModeSingle       = "Single color"
 	colorModePerCharacter = "Per-character colors"
@@ -144,7 +146,7 @@ func defaultProject() Project {
 			Languages: []string{"English", "German", "Ukrainian", "Russian"},
 		},
 		Display: DisplaySettings{
-			Mode: displayModeSegment,
+			Mode: displayModeBlockMatrix,
 		},
 		Style: StyleSettings{
 			ColorMode:          colorModeSingle,
@@ -216,7 +218,11 @@ func normalizeProject(project Project) Project {
 	if len(project.Charset.Languages) == 0 {
 		project.Charset.Languages = def.Charset.Languages
 	}
-	if project.Display.Mode == "" {
+	switch project.Display.Mode {
+	case "", legacyDisplayModeSegment:
+		project.Display.Mode = def.Display.Mode
+	case displayModeBlockMatrix, displayModeDotMatrix, displayModeSegment:
+	default:
 		project.Display.Mode = def.Display.Mode
 	}
 	if project.Style.ColorMode == "" {

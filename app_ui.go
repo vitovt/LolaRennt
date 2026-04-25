@@ -189,7 +189,7 @@ func (ui *appUI) buildTextAndStyleTab() fyne.CanvasObject {
 		ui.refreshDerivedUI()
 	})
 
-	ui.displayType = widget.NewRadioGroup([]string{displayModeSegment, displayModeDotMatrix}, func(value string) {
+	ui.displayType = widget.NewRadioGroup([]string{displayModeBlockMatrix, displayModeDotMatrix, displayModeSegment}, func(value string) {
 		if ui.suspend {
 			return
 		}
