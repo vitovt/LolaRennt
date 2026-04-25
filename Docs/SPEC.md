@@ -201,8 +201,9 @@
 
 ### 8.3. Display Mode
 
-* `Segment`
+* `Block matrix`
 * `Dot-matrix`
+* `Segment display`
 
 ### 8.4. Glyph Strategy
 
@@ -474,8 +475,9 @@ Variable-width layout не входить у `v1.0`.
 
 ### 16.2. Display type
 
-* `Segment`
+* `Block matrix`
 * `Dot-matrix`
+* `Segment display`
 
 ### 16.3. Text
 
@@ -739,7 +741,7 @@ Variable-width layout не входить у `v1.0`.
 
 * користувач може створити новий проєкт;
 * може ввести текст у кілька рядків;
-* може вибрати `Segment` або `Dot-matrix`;
+* може вибрати `Block matrix`, `Dot-matrix` або `Segment display`;
 * може працювати принаймні з English, German, Ukrainian і Russian наборами символів;
 * може застосувати fixed-width layout;
 * може змінити колір, glow і базові animation settings;

@@ -127,11 +127,12 @@ Deliverables:
 Deliverables:
 
 * glyph representation для:
-  * `Segment`
+  * `Block matrix`
   * `Dot-matrix`
+  * `Segment display`
 * automatic glyph preset selection для `v1.0`;
 * static text renderer;
-* inactive segments / dots;
+* inactive blocks / dots for matrix modes;
 * main color;
 * glow;
 * fixed-width layout;
@@ -140,7 +141,7 @@ Deliverables:
 
 Критерій завершення:
 
-* preview коректно показує multi-line текст у двох display modes;
+* preview коректно показує multi-line текст у трьох display modes;
 * один і той самий input дає стабільний статичний результат.
 
 ---
